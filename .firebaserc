@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "rapid-prototyping-4134c"
+  },
+  "targets": {
+    "rapid-prototyping-4134c": {
+      "hosting": {
+        "merchant-web-mcp": [
+          "merchant-web-mcp"
+        ]
+      }
+    }
+  }
+}

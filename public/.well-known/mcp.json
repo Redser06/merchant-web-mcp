@@ -1,0 +1,33 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/v1/manifest.json",
+  "mcp_version": "2024-11-05",
+  "server": {
+    "name": "Apex Gear Co. Merchant MCP",
+    "description": "Deterministic product catalog, inventory reservation, and checkout handoff for AI shopping agents.",
+    "homepage": "https://apexgear.demo",
+    "transport": {
+      "type": "sse",
+      "url": "https://apexgear.demo/.well-known/mcp"
+    }
+  },
+  "capabilities": {
+    "tools": [
+      "search_products",
+      "get_product_details",
+      "check_variant_stock",
+      "apply_promotions",
+      "add_to_cart_session",
+      "create_checkout_session",
+      "get_store_policies"
+    ],
+    "resources": [
+      "merchant://policies",
+      "merchant://promotions"
+    ]
+  },
+  "security": {
+    "prompt_injection_guard": true,
+    "inventory_soft_lock_ttl_seconds": 900,
+    "rate_limit_rpm": 120
+  }
+}
