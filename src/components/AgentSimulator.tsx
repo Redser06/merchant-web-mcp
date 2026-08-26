@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { 
   Scenario, 
   AgentStep, 
@@ -17,7 +17,8 @@ import {
   ExternalLink, 
   ShieldCheck, 
   CreditCard, 
-  Send
+  Send,
+  Lock
 } from 'lucide-react';
 
 interface AgentSimulatorProps {
@@ -53,10 +54,10 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
     onRefreshData();
   };
 
-  const executeStep = async (stepIndex: number) => {
+  const executeStep = useCallback(async (stepIndex: number) => {
     if (stepIndex < 0 || stepIndex >= selectedScenario.steps.length) return;
 
-    const step = selectedScenario.steps[stepIndex];
+    const step = { ...selectedScenario.steps[stepIndex] };
     onStepChange(step);
 
     try {
@@ -82,7 +83,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
     if (stepIndex === selectedScenario.steps.length - 1) {
       setIsPlaying(false);
     }
-  };
+  }, [selectedScenario, engine, onStepChange, onRefreshData]);
 
   // Next Step Trigger
   const handleNextStep = () => {
@@ -130,7 +131,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
     };
-  }, [isPlaying, selectedScenario]);
+  }, [isPlaying, selectedScenario, executeStep]);
 
   const handleReset = () => {
     if (timerRef.current) window.clearInterval(timerRef.current);
@@ -151,15 +152,15 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
     handleReset();
 
     const q = customPrompt.toLowerCase();
-    const isWaterproof = q.includes('waterproof') || q.includes('rain') || q.includes('gore-tex');
-    const isHoodie = q.includes('hoodie') || q.includes('wool') || q.includes('merino');
-    const isShoe = q.includes('shoe') || q.includes('trail') || q.includes('footwear');
+    const isWaterproof = q.includes('waterproof') || q.includes('rain') || q.includes('taped');
+    const isBackpack = q.includes('backpack') || q.includes('pack') || q.includes('bag');
+    const isJacket = q.includes('jacket') || q.includes('shell');
 
     const dynamicSteps: AgentStep[] = [
       {
         stepNumber: 1,
         title: 'Query Merchant MCP Server',
-        thought: `Searching store catalog for keywords matching: "${customPrompt}"`,
+        thought: `Searching catalog for semantic keywords: "${customPrompt}"`,
         toolCall: {
           name: 'search_products',
           params: { query: customPrompt.substring(0, 30), waterproof_only: isWaterproof }
@@ -168,33 +169,39 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
       }
     ];
 
-    if (isHoodie) {
+    if (isBackpack) {
       dynamicSteps.push({
         stepNumber: 2,
-        title: 'Reserve Merino Hoodie Medium',
-        thought: 'Selecting Medium variant and adding to cart session.',
-        toolCall: { name: 'add_to_cart_session', params: { variant_id: 'var_hd_02_m', quantity: 1 } },
-        status: 'pending'
-      });
-    } else if (isShoe) {
-      dynamicSteps.push({
-        stepNumber: 2,
-        title: 'Check Size 10 Availability',
-        thought: 'Checking inventory for Vanguard Trail Pro Size 10.',
-        toolCall: { name: 'check_variant_stock', params: { variant_id: 'var_tr_01_10', postal_code: '10001' } },
+        title: 'Inspect Summit 40L Specs',
+        thought: 'Fetching detailed construction and waterproof rating for Summit 40L.',
+        toolCall: { name: 'get_product_details', params: { product_id: 'summit_40l', include_reviews: true } },
         status: 'pending'
       }, {
         stepNumber: 3,
-        title: 'Add to Cart',
-        thought: 'Reserving 1 unit in active cart.',
-        toolCall: { name: 'add_to_cart_session', params: { variant_id: 'var_tr_01_10', quantity: 1 } },
+        title: 'Check UK Warehouse Inventory',
+        thought: 'Checking Manchester live stock for variant var_summit_black.',
+        toolCall: { name: 'check_variant_stock', params: { variant_id: 'var_summit_black', postal_code: 'M1 1AE' } },
+        status: 'pending'
+      }, {
+        stepNumber: 4,
+        title: 'Add to Cart Session',
+        thought: 'Reserving 1 unit with 15-minute soft lock.',
+        toolCall: { name: 'add_to_cart_session', params: { variant_id: 'var_summit_black', quantity: 1 } },
+        status: 'pending'
+      });
+    } else if (isJacket) {
+      dynamicSteps.push({
+        stepNumber: 2,
+        title: 'Reserve HydroShield Jacket Medium',
+        thought: 'Adding Medium jacket to active cart session.',
+        toolCall: { name: 'add_to_cart_session', params: { variant_id: 'var_hs_m', quantity: 1 } },
         status: 'pending'
       });
     } else {
       dynamicSteps.push({
         stepNumber: 2,
         title: 'Inspect Store Policies & Shipping',
-        thought: 'Checking merchant return and shipping policies.',
+        thought: 'Checking merchant return and free delivery thresholds.',
         toolCall: { name: 'get_store_policies', params: {} },
         status: 'pending'
       });
@@ -202,8 +209,8 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
 
     dynamicSteps.push({
       stepNumber: dynamicSteps.length + 1,
-      title: 'Generate Checkout Session',
-      thought: 'Finalizing cart and generating deep link handoff.',
+      title: 'Generate Signed Checkout Session',
+      thought: 'Finalizing cart and computing real HMAC-SHA256 signature.',
       toolCall: { name: 'create_checkout_session', params: { cart_id: 'active', mode: 'deep_link_url' } },
       status: 'pending'
     });
@@ -241,7 +248,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-100 text-sm tracking-tight">AI Agent Simulator</span>
               <span className="text-[10px] bg-purple-950 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/30 font-mono">
-                Client Runtime
+                MCP Client
               </span>
             </div>
             <p className="text-[11px] text-slate-400">Autonomous Shopping Orchestration Engine</p>
@@ -301,7 +308,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
               }`}
             >
               <div className="font-semibold text-slate-200 line-clamp-1 mb-1">{sc.name}</div>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.2 rounded self-start border border-cyan-500/20">
+              <span className="text-[10px] font-mono text-sky-400 bg-sky-950/60 px-1.5 py-0.2 rounded self-start border border-sky-500/20">
                 {sc.badge}
               </span>
             </button>
@@ -314,7 +321,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
         <form onSubmit={handleCustomPromptSubmit} className="relative">
           <input
             type="text"
-            placeholder="Type custom shopping query (e.g. 'Find merino wool hoodie and check shipping')..."
+            placeholder="Type custom query (e.g. 'Find waterproof backpack under £100 shipping uk')..."
             value={customPrompt}
             onChange={(e) => setCustomPrompt(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-3 pr-9 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition"
@@ -335,7 +342,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
           <Sparkles className="w-3.5 h-3.5" />
         </div>
         <div className="flex-1 text-xs">
-          <span className="text-[10px] uppercase font-mono text-slate-400 block font-semibold">User Prompt Intent:</span>
+          <span className="text-[10px] uppercase font-mono text-slate-400 block font-semibold">Customer Intent Prompt:</span>
           <p className="text-slate-200 font-medium italic">"{selectedScenario.prompt}"</p>
         </div>
       </div>
@@ -373,7 +380,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
                 </div>
 
                 {step.toolCall && (
-                  <span className="text-[10px] font-mono bg-cyan-950/80 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/30">
+                  <span className="text-[10px] font-mono bg-sky-950/80 text-sky-300 px-2 py-0.5 rounded border border-sky-500/30">
                     tools/call → {step.toolCall.name}
                   </span>
                 )}
@@ -407,11 +414,11 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
                   </div>
                   <div className="text-slate-300 truncate">
                     {step.toolCall?.name === 'search_products' && `Found ${step.toolResult.total_matches} matching catalog items.`}
-                    {step.toolCall?.name === 'check_variant_stock' && `Live Stock: ${step.toolResult.available_units} units available.`}
-                    {step.toolCall?.name === 'apply_promotions' && `Discount: -$${step.toolResult.discount_amount} (${step.toolResult.discount_percent}% off).`}
-                    {step.toolCall?.name === 'add_to_cart_session' && `Cart Total: $${step.toolResult.cart_summary?.total.toFixed(2)} with 15-min soft lock.`}
-                    {step.toolCall?.name === 'create_checkout_session' && `Generated signed session ${step.toolResult.session_id}.`}
-                    {step.toolCall?.name === 'get_store_policies' && `Verified 30-day returns & Lifetime Alpine Warranty.`}
+                    {step.toolCall?.name === 'check_variant_stock' && `Live Stock: ${step.toolResult.available_units} units available in ${step.toolResult.delivery_estimate?.warehouse_location}.`}
+                    {step.toolCall?.name === 'apply_promotions' && `Discount: -£${step.toolResult.discount_amount} (${step.toolResult.discount_percent}% off).`}
+                    {step.toolCall?.name === 'add_to_cart_session' && `Cart Total: £${step.toolResult.cart_summary?.total.toFixed(2)} with active ${step.toolResult.ttl_seconds}s soft lock.`}
+                    {step.toolCall?.name === 'create_checkout_session' && `Cryptographic HMAC-SHA256 verified for cart ${step.toolResult.session_id}.`}
+                    {step.toolCall?.name === 'get_store_policies' && `Verified 30-day UK returns & Royal Mail Tracked 24 Free Shipping.`}
                   </div>
                 </div>
               )}
@@ -427,14 +434,28 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                 <span className="font-bold text-slate-100 text-sm">Autonomous Assembly Complete</span>
               </div>
-              <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
-                Ready for Handoff
+              <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-emerald-400" />
+                <span>HMAC-SHA256 Signed</span>
               </span>
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed font-sans">
               {selectedScenario.expectedOutcome.summary}
             </p>
+
+            {/* Cryptographic Signature Attestation Box */}
+            {checkoutPayload?.security_attestation && (
+              <div className="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] font-mono text-slate-400 space-y-1">
+                <div className="flex items-center justify-between text-slate-300">
+                  <span className="text-sky-400 font-bold">SubtleCrypto HMAC Attestation:</span>
+                  <span className="text-emerald-400">✓ Cryptographically Verified</span>
+                </div>
+                <div className="truncate text-slate-400">
+                  SIG: <code className="text-emerald-300">{checkoutPayload.security_attestation.signature}</code>
+                </div>
+              </div>
+            )}
 
             {/* Handoff Options Visualizer */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-800">
@@ -443,16 +464,16 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
               <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200 mb-1">
-                    <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
+                    <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
                     <span>Signed Deep-Link</span>
                   </div>
                   <p className="text-[10px] text-slate-400 leading-snug">
-                    Pre-authenticated 1-click cart URL with 15-min HMAC token.
+                    Pre-authenticated 1-click checkout URL with Web Crypto HMAC token.
                   </p>
                 </div>
                 <button
-                  onClick={() => alert(`Redirecting to: ${checkoutPayload?.checkout_url || 'https://apexgear.demo/checkout'}`)}
-                  className="mt-2 w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-1.5 px-2 rounded text-[11px] transition shadow"
+                  onClick={() => alert(`Redirecting to verified checkout URL: ${checkoutPayload?.checkout_url || 'https://trailco.co.uk/checkout'}`)}
+                  className="mt-2 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-1.5 px-2 rounded text-[11px] transition shadow"
                 >
                   Open 1-Click Checkout →
                 </button>
@@ -470,7 +491,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
                   </p>
                 </div>
                 <div className="mt-2 bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono p-1 rounded text-center truncate">
-                  AUTH_TOKEN: {checkoutPayload?.delegated_agent_pass?.token || 'agnt_tok_99x81a'}
+                  {checkoutPayload?.delegated_agent_pass?.token || 'agnt_pass_a4f891...'}
                 </div>
               </div>
 

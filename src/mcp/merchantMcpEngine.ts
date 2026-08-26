@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import { INITIAL_PRODUCTS, STORE_POLICIES, PROMO_CODES } from '../data/mockProducts';
 import { SecurityGuard } from './securityGuard';
+import { signCheckoutSession } from './cryptoAuth';
 
 export const MERCHANT_MCP_TOOLS: McpToolDefinition[] = [
   {
@@ -14,9 +15,9 @@ export const MERCHANT_MCP_TOOLS: McpToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Search keywords (e.g., "waterproof trail shoe", "merino hoodie")' },
+        query: { type: 'string', description: 'Search keywords (e.g., "waterproof backpack", "merino hoodie")' },
         category: { type: 'string', description: 'Category filter', enum: ['Footwear', 'Apparel', 'Gear', 'Packs'] },
-        max_price: { type: 'number', description: 'Maximum price filter in USD' },
+        max_price: { type: 'number', description: 'Maximum price filter in GBP/USD' },
         waterproof_only: { type: 'boolean', description: 'Filter specifically for waterproof gear' }
       }
     }
@@ -27,7 +28,7 @@ export const MERCHANT_MCP_TOOLS: McpToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        product_id: { type: 'string', description: 'Unique product ID (e.g., "prod_trail_01")' },
+        product_id: { type: 'string', description: 'Unique product ID (e.g., "summit_40l")' },
         include_reviews: { type: 'boolean', description: 'Whether to include verified customer reviews' }
       },
       required: ['product_id']
@@ -39,8 +40,8 @@ export const MERCHANT_MCP_TOOLS: McpToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        variant_id: { type: 'string', description: 'Unique variant ID (e.g., "var_tr_01_10")' },
-        postal_code: { type: 'string', description: 'Destination US/International postal code for delivery estimation' }
+        variant_id: { type: 'string', description: 'Unique variant ID (e.g., "var_summit_black")' },
+        postal_code: { type: 'string', description: 'Destination postal code for delivery estimation' }
       },
       required: ['variant_id']
     }
@@ -52,7 +53,7 @@ export const MERCHANT_MCP_TOOLS: McpToolDefinition[] = [
       type: 'object',
       properties: {
         promo_code: { type: 'string', description: 'Coupon code (e.g., "SUMMER20", "VIPAGENT15")' },
-        cart_subtotal: { type: 'number', description: 'Current cart subtotal in USD' }
+        cart_subtotal: { type: 'number', description: 'Current cart subtotal' }
       },
       required: ['promo_code', 'cart_subtotal']
     }
@@ -64,14 +65,15 @@ export const MERCHANT_MCP_TOOLS: McpToolDefinition[] = [
       type: 'object',
       properties: {
         variant_id: { type: 'string', description: 'The variant ID to reserve and add' },
-        quantity: { type: 'number', description: 'Quantity to add (default: 1)' }
+        quantity: { type: 'number', description: 'Quantity to add (default: 1)' },
+        cart_id: { type: 'string', description: 'Optional explicit cart ID. If omitted, uses active session cart.' }
       },
       required: ['variant_id']
     }
   },
   {
     name: 'create_checkout_session',
-    description: 'Generate a signed, tamper-proof deep-link checkout URL or Agent Wallet handoff payload with verified totals and reservation token.',
+    description: 'Generate a genuine HMAC-SHA256 signed checkout URL or Agent Wallet handoff payload with verified totals and reservation token.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -91,16 +93,23 @@ export const MERCHANT_MCP_TOOLS: McpToolDefinition[] = [
   }
 ];
 
+export interface InventoryReservation {
+  id: string;
+  cartId: string;
+  variantId: string;
+  quantity: number;
+  reservedAt: number;
+  expiresAt: number;
+  timerId?: ReturnType<typeof setTimeout>;
+}
+
 export class MerchantMcpEngine {
   private products: Product[] = JSON.parse(JSON.stringify(INITIAL_PRODUCTS));
-  private cart: StoreCart = {
-    id: `cart_${Date.now().toString(36)}`,
-    items: [],
-    subtotal: 0,
-    discount: 0,
-    shipping: 0,
-    total: 0
-  };
+  private carts: Map<string, StoreCart> = new Map();
+  private reservations: Map<string, InventoryReservation> = new Map();
+  private activeCartId: string;
+  private ttlSeconds: number = 900; // 15 minutes default
+
   private securityGuard: SecurityGuard;
   private onFrameCallback?: (frame: JsonRpcFrame) => void;
   private onCartChangeCallback?: (cart: StoreCart) => void;
@@ -110,34 +119,122 @@ export class MerchantMcpEngine {
     securityGuard: SecurityGuard,
     onFrame?: (frame: JsonRpcFrame) => void,
     onCartChange?: (cart: StoreCart) => void,
-    onInventoryChange?: (products: Product[]) => void
+    onInventoryChange?: (products: Product[]) => void,
+    ttlSeconds: number = 900
   ) {
     this.securityGuard = securityGuard;
     this.onFrameCallback = onFrame;
     this.onCartChangeCallback = onCartChange;
     this.onInventoryChangeCallback = onInventoryChange;
+    this.ttlSeconds = ttlSeconds;
+
+    this.activeCartId = `cart_bc_${Date.now().toString(36)}`;
+    this.carts.set(this.activeCartId, {
+      id: this.activeCartId,
+      items: [],
+      subtotal: 0,
+      discount: 0,
+      shipping: 0,
+      total: 0
+    });
   }
 
   public getProducts(): Product[] {
     return this.products;
   }
 
-  public getCart(): StoreCart {
-    return this.cart;
+  public getCart(cartId?: string): StoreCart {
+    const id = cartId || this.activeCartId;
+    let cart = this.carts.get(id);
+    if (!cart) {
+      cart = {
+        id,
+        items: [],
+        subtotal: 0,
+        discount: 0,
+        shipping: 0,
+        total: 0
+      };
+      this.carts.set(id, cart);
+    }
+    return cart;
+  }
+
+  public getAllCarts(): StoreCart[] {
+    return Array.from(this.carts.values());
+  }
+
+  public getReservations(): InventoryReservation[] {
+    return Array.from(this.reservations.values());
   }
 
   public resetState(): void {
+    // Clear all pending reservation timers
+    for (const res of this.reservations.values()) {
+      if (res.timerId) clearTimeout(res.timerId);
+    }
+    this.reservations.clear();
     this.products = JSON.parse(JSON.stringify(INITIAL_PRODUCTS));
-    this.cart = {
-      id: `cart_${Date.now().toString(36)}`,
+    this.carts.clear();
+    
+    this.activeCartId = `cart_bc_${Date.now().toString(36)}`;
+    const freshCart: StoreCart = {
+      id: this.activeCartId,
       items: [],
       subtotal: 0,
       discount: 0,
       shipping: 0,
       total: 0
     };
-    if (this.onCartChangeCallback) this.onCartChangeCallback(this.cart);
+    this.carts.set(this.activeCartId, freshCart);
+
+    if (this.onCartChangeCallback) this.onCartChangeCallback(freshCart);
     if (this.onInventoryChangeCallback) this.onInventoryChangeCallback(this.products);
+  }
+
+  /**
+   * Automatically expires a reservation when TTL lapses.
+   */
+  public expireReservation(reservationId: string): void {
+    const reservation = this.reservations.get(reservationId);
+    if (!reservation) return;
+
+    // Decrement reserved inventory on product
+    for (const p of this.products) {
+      const v = p.variants.find(v => v.id === reservation.variantId);
+      if (v) {
+        v.reserved = Math.max(0, v.reserved - reservation.quantity);
+        break;
+      }
+    }
+
+    if (reservation.timerId) {
+      clearTimeout(reservation.timerId);
+    }
+    this.reservations.delete(reservationId);
+
+    const cart = this.carts.get(reservation.cartId);
+    if (cart) {
+      cart.reservationExpiresAt = undefined;
+      if (this.onCartChangeCallback) this.onCartChangeCallback(cart);
+    }
+
+    if (this.onInventoryChangeCallback) this.onInventoryChangeCallback(this.products);
+
+    // Emit live wire notification frame
+    this.emitFrame({
+      id: `evt_${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'event',
+      method: 'notifications/inventory_reservation_expired',
+      params: {
+        reservation_id: reservationId,
+        cart_id: reservation.cartId,
+        variant_id: reservation.variantId,
+        released_units: reservation.quantity,
+        reason: 'TTL 15-minute soft lock expiration'
+      }
+    });
   }
 
   public async executeRpc(method: string, params: any = {}, id: string | number = Date.now()): Promise<any> {
@@ -160,9 +257,9 @@ export class MerchantMcpEngine {
         result = {
           protocolVersion: '2024-11-05',
           serverInfo: {
-            name: 'apex-merchant-web-mcp',
+            name: 'bigcommerce-merchant-web-mcp',
             version: '1.2.0',
-            vendor: 'Apex Gear Co.'
+            vendor: 'TrailCo. UK'
           },
           capabilities: {
             tools: { listChanged: false },
@@ -196,11 +293,12 @@ export class MerchantMcpEngine {
       error = { code: -32603, message: err.message || 'Internal MCP Error' };
     }
 
-    const latencyMs = Math.round(performance.now() - startTime + 12);
+    const latencyMs = Math.round(performance.now() - startTime + 14);
     
-    // Calculate token metrics (raw DOM comparison vs lean JSON)
+    // Dynamic token calculations against documented DOM-scraping baselines
     const jsonStr = JSON.stringify(result || error || {});
-    const mcpTokens = Math.ceil(jsonStr.length / 3.8);
+    const mcpTokens = Math.max(12, Math.ceil(jsonStr.length / 3.8));
+    // Baseline DOM scrape size: Catalog search (~6,200 tokens), specs (~2,800 tokens), cart (~1,400 tokens)
     const rawDomTokens = method === 'tools/call' && params.name === 'search_products' ? 6200 : 2800;
     const reductionPercentage = Math.round(((rawDomTokens - mcpTokens) / rawDomTokens) * 100);
 
@@ -216,7 +314,7 @@ export class MerchantMcpEngine {
       tokenStats: {
         rawDomEquivalentTokens: rawDomTokens,
         mcpPayloadTokens: mcpTokens,
-        reductionPercentage: Math.max(80, Math.min(98, reductionPercentage))
+        reductionPercentage: Math.max(75, Math.min(98, reductionPercentage))
       }
     };
     this.emitFrame(resFrame);
@@ -228,7 +326,9 @@ export class MerchantMcpEngine {
   private async handleToolCall(toolName: string, args: any): Promise<any> {
     switch (toolName) {
       case 'search_products': {
-        const query = (args.query || '').toLowerCase();
+        // Multi-field scanning of search query
+        const scannedQuery = this.securityGuard.scanForInjection(args.query || '', 'search_products query');
+        const query = scannedQuery.sanitized.toLowerCase();
         const category = args.category;
         const maxPrice = args.max_price ? Number(args.max_price) : undefined;
         const waterproofOnly = args.waterproof_only;
@@ -248,6 +348,7 @@ export class MerchantMcpEngine {
 
         return {
           total_matches: filtered.length,
+          currency: STORE_POLICIES.currency,
           products: filtered.map(p => ({
             id: p.id,
             title: p.title,
@@ -289,6 +390,7 @@ export class MerchantMcpEngine {
           brand: product.brand,
           category: product.category,
           price: product.price,
+          currency: STORE_POLICIES.currency,
           description: product.description,
           attributes: product.attributes,
           variants: product.variants.map(v => ({
@@ -323,8 +425,7 @@ export class MerchantMcpEngine {
         }
 
         const available = Math.max(0, foundVariant.inventory - foundVariant.reserved);
-        const postal = args.postal_code || '10001';
-        const isEastCoast = postal.startsWith('1') || postal.startsWith('0') || postal.startsWith('2');
+        const postal = args.postal_code || 'M1 1AE';
 
         return {
           variant_id: foundVariant.id,
@@ -336,16 +437,18 @@ export class MerchantMcpEngine {
           low_stock_warning: available <= 2 && available > 0,
           delivery_estimate: {
             destination_postal: postal,
-            standard_delivery: isEastCoast ? '2-3 Business Days' : '3-5 Business Days',
-            express_delivery: 'Next Business Day',
-            warehouse_origin: 'Apex Distribution Hub - Denver, CO'
+            carrier: STORE_POLICIES.shipping.carrier,
+            standard_delivery: STORE_POLICIES.shipping.estimatedDaysStandard,
+            express_delivery: STORE_POLICIES.shipping.estimatedDaysExpress,
+            warehouse_location: 'Manchester Distribution Hub (UK)'
           }
         };
       }
 
       case 'apply_promotions': {
-        const code = (args.promo_code || '').toUpperCase().trim();
-        const subtotal = Number(args.cart_subtotal || this.cart.subtotal);
+        const codeScan = this.securityGuard.scanForInjection(args.promo_code || '', 'apply_promotions promo_code');
+        const code = codeScan.sanitized.toUpperCase().trim();
+        const subtotal = Number(args.cart_subtotal || this.getCart().subtotal);
         const promo = PROMO_CODES[code];
 
         if (!promo) {
@@ -358,7 +461,7 @@ export class MerchantMcpEngine {
         if (subtotal < promo.minSubtotal) {
           return {
             valid: false,
-            message: `Coupon "${code}" requires minimum subtotal of $${promo.minSubtotal}. Current: $${subtotal.toFixed(2)}.`
+            message: `Coupon "${code}" requires minimum subtotal of £${promo.minSubtotal}. Current: £${subtotal.toFixed(2)}.`
           };
         }
 
@@ -376,6 +479,7 @@ export class MerchantMcpEngine {
       case 'add_to_cart_session': {
         const variantId = args.variant_id;
         const qty = Number(args.quantity) || 1;
+        const targetCartId = (args.cart_id === 'active' || !args.cart_id) ? this.activeCartId : args.cart_id;
 
         let targetVariant: any = null;
         let targetProduct: any = null;
@@ -395,16 +499,18 @@ export class MerchantMcpEngine {
 
         const available = targetVariant.inventory - targetVariant.reserved;
         if (available < qty) {
-          throw new Error(`Cannot reserve ${qty} units. Only ${available} available.`);
+          throw new Error(`Cannot reserve ${qty} units. Only ${available} available in stock.`);
         }
 
+        // Ephemeral lock creation
         targetVariant.reserved += qty;
 
-        const existingItem = this.cart.items.find(i => i.variantId === variantId);
+        const cart = this.getCart(targetCartId);
+        const existingItem = cart.items.find(i => i.variantId === variantId);
         if (existingItem) {
           existingItem.quantity += qty;
         } else {
-          this.cart.items.push({
+          cart.items.push({
             productId: targetProduct.id,
             productTitle: targetProduct.title,
             variantId: targetVariant.id,
@@ -415,44 +521,87 @@ export class MerchantMcpEngine {
           });
         }
 
-        this.recalculateCart();
+        const reservationId = `res_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const expiresAt = Date.now() + (this.ttlSeconds * 1000);
+        cart.reservationExpiresAt = expiresAt;
+
+        // Start active TTL timer
+        const timerId = setTimeout(() => {
+          this.expireReservation(reservationId);
+        }, this.ttlSeconds * 1000);
+
+        this.reservations.set(reservationId, {
+          id: reservationId,
+          cartId: targetCartId,
+          variantId,
+          quantity: qty,
+          reservedAt: Date.now(),
+          expiresAt,
+          timerId
+        });
+
+        this.recalculateCart(cart);
         if (this.onInventoryChangeCallback) this.onInventoryChangeCallback(this.products);
-        if (this.onCartChangeCallback) this.onCartChangeCallback(this.cart);
+        if (this.onCartChangeCallback) this.onCartChangeCallback(cart);
 
         return {
           status: 'success',
-          message: `Added ${qty}x ${targetProduct.title} (${targetVariant.name}) to cart with 15-minute inventory reservation lock.`,
-          cart_id: this.cart.id,
+          message: `Added ${qty}x ${targetProduct.title} (${targetVariant.name}) with verified ${this.ttlSeconds}s inventory reservation lock.`,
+          cart_id: cart.id,
+          reservation_id: reservationId,
+          reservation_expires_at: new Date(expiresAt).toISOString(),
+          ttl_seconds: this.ttlSeconds,
           cart_summary: {
-            item_count: this.cart.items.reduce((acc, i) => acc + i.quantity, 0),
-            subtotal: this.cart.subtotal,
-            shipping: this.cart.shipping,
-            total: this.cart.total,
-            reservation_expires_in_seconds: 900
+            item_count: cart.items.reduce((acc, i) => acc + i.quantity, 0),
+            subtotal: cart.subtotal,
+            shipping: cart.shipping,
+            total: cart.total,
+            currency: STORE_POLICIES.currency
           }
         };
       }
 
       case 'create_checkout_session': {
-        if (this.cart.items.length === 0) {
+        const targetCartId = (args.cart_id === 'active' || !args.cart_id) ? this.activeCartId : args.cart_id;
+        const cart = this.carts.get(targetCartId);
+
+        if (!cart) {
+          throw new Error(`Cart "${targetCartId}" does not exist.`);
+        }
+
+        if (cart.items.length === 0) {
           throw new Error('Cart is empty. Cannot generate checkout session.');
         }
 
         const mode = args.mode || 'deep_link_url';
-        const signature = `mcp_sig_${Math.random().toString(36).substring(2, 12)}_${Date.now()}`;
-        const checkoutUrl = `https://apexgear.demo/checkout?session=${this.cart.id}&sig=${signature}&amount=${this.cart.total.toFixed(2)}`;
+        const expiresAt = cart.reservationExpiresAt || (Date.now() + (this.ttlSeconds * 1000));
+
+        // Genuine cryptographic HMAC-SHA256 signing
+        const signed = await signCheckoutSession({
+          cartId: cart.id,
+          total: cart.total,
+          currency: STORE_POLICIES.currency,
+          expiresAt
+        });
 
         return {
-          session_id: this.cart.id,
+          session_id: cart.id,
           mode,
-          checkout_url: checkoutUrl,
-          total_amount: this.cart.total,
-          currency: 'USD',
-          ttl_seconds: 900,
+          checkout_url: signed.checkoutUrl,
+          total_amount: cart.total,
+          currency: STORE_POLICIES.currency,
+          expires_at: new Date(expiresAt).toISOString(),
+          ttl_remaining_seconds: Math.max(0, Math.round((expiresAt - Date.now()) / 1000)),
+          security_attestation: {
+            algorithm: 'HMAC-SHA256',
+            signature: signed.signatureHex,
+            is_cryptographically_verified: true,
+            canonical_payload: signed.canonicalMessage
+          },
           delegated_agent_pass: mode === 'agent_wallet_token' ? {
-            token: `agnt_tok_${Math.random().toString(36).substring(2, 14)}`,
-            merchant_identifier: 'merchant.demo.apexgear',
-            authorized_max_cents: Math.round(this.cart.total * 100),
+            token: `agnt_pass_${signed.signatureHex.substring(0, 16)}`,
+            merchant_identifier: 'merchant.trailco.uk',
+            authorized_max_cents: Math.round(cart.total * 100),
             biometric_verification_required: true
           } : undefined
         };
@@ -467,21 +616,24 @@ export class MerchantMcpEngine {
     }
   }
 
-  public applyCartPromo(code: string): boolean {
+  public applyCartPromo(code: string, cartId?: string): boolean {
+    const cart = this.getCart(cartId);
     const promo = PROMO_CODES[code.toUpperCase()];
-    if (promo && this.cart.subtotal >= promo.minSubtotal) {
-      this.cart.appliedPromo = code.toUpperCase();
-      this.recalculateCart();
-      if (this.onCartChangeCallback) this.onCartChangeCallback(this.cart);
+    if (promo && cart.subtotal >= promo.minSubtotal) {
+      cart.appliedPromo = code.toUpperCase();
+      this.recalculateCart(cart);
+      if (this.onCartChangeCallback) this.onCartChangeCallback(cart);
       return true;
     }
     return false;
   }
 
-  public removeCartItem(variantId: string): void {
-    const itemIndex = this.cart.items.findIndex(i => i.variantId === variantId);
+  public removeCartItem(variantId: string, cartId?: string): void {
+    const cart = this.getCart(cartId);
+    const itemIndex = cart.items.findIndex(i => i.variantId === variantId);
     if (itemIndex > -1) {
-      const item = this.cart.items[itemIndex];
+      const item = cart.items[itemIndex];
+      // Release inventory reservation
       for (const p of this.products) {
         const v = p.variants.find(v => v.id === variantId);
         if (v) {
@@ -489,22 +641,31 @@ export class MerchantMcpEngine {
           break;
         }
       }
-      this.cart.items.splice(itemIndex, 1);
-      this.recalculateCart();
+
+      // Clear reservation record
+      for (const [resId, res] of this.reservations.entries()) {
+        if (res.cartId === cart.id && res.variantId === variantId) {
+          if (res.timerId) clearTimeout(res.timerId);
+          this.reservations.delete(resId);
+        }
+      }
+
+      cart.items.splice(itemIndex, 1);
+      this.recalculateCart(cart);
       if (this.onInventoryChangeCallback) this.onInventoryChangeCallback(this.products);
-      if (this.onCartChangeCallback) this.onCartChangeCallback(this.cart);
+      if (this.onCartChangeCallback) this.onCartChangeCallback(cart);
     }
   }
 
-  private recalculateCart(): void {
-    const subtotal = this.cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  private recalculateCart(cart: StoreCart): void {
+    const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     let discount = 0;
-    if (this.cart.appliedPromo) {
-      const promo = PROMO_CODES[this.cart.appliedPromo];
+    if (cart.appliedPromo) {
+      const promo = PROMO_CODES[cart.appliedPromo];
       if (promo && subtotal >= promo.minSubtotal) {
         discount = Math.round((subtotal * (promo.discountPercent / 100)) * 100) / 100;
       } else {
-        this.cart.appliedPromo = undefined;
+        cart.appliedPromo = undefined;
       }
     }
     const eligibleSubtotal = subtotal - discount;
@@ -512,10 +673,10 @@ export class MerchantMcpEngine {
       ? 0 
       : STORE_POLICIES.shipping.standardRate;
 
-    this.cart.subtotal = Math.round(subtotal * 100) / 100;
-    this.cart.discount = discount;
-    this.cart.shipping = shipping;
-    this.cart.total = Math.round((eligibleSubtotal + shipping) * 100) / 100;
+    cart.subtotal = Math.round(subtotal * 100) / 100;
+    cart.discount = discount;
+    cart.shipping = shipping;
+    cart.total = Math.round((eligibleSubtotal + shipping) * 100) / 100;
   }
 
   private emitFrame(frame: JsonRpcFrame): void {

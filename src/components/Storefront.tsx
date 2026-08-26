@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { 
   Product, 
   ProductVariant, 
@@ -16,7 +16,8 @@ import {
   X, 
   Sparkles, 
   ExternalLink,
-  Flame
+  Flame,
+  Clock
 } from 'lucide-react';
 
 interface StorefrontProps {
@@ -45,8 +46,29 @@ export const Storefront: React.FC<StorefrontProps> = ({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [promoInput, setPromoInput] = useState<string>('');
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
 
   const categories = ['All', 'Footwear', 'Apparel', 'Gear', 'Packs'];
+
+  // Live countdown timer for active inventory reservation lock
+  useEffect(() => {
+    if (!cart.reservationExpiresAt) {
+      return;
+    }
+
+    const compute = () => Math.max(0, Math.round((cart.reservationExpiresAt! - Date.now()) / 1000));
+    const timer = setInterval(() => {
+      setRemainingSeconds(compute());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cart.reservationExpiresAt]);
+
+  const formatCountdown = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   const filteredProducts = products.filter(p => {
     if (selectedCategory !== 'All' && p.category !== selectedCategory) return false;
@@ -82,17 +104,17 @@ export const Storefront: React.FC<StorefrontProps> = ({
       {/* Merchant Store Header */}
       <div className="bg-slate-900/90 border-b border-slate-800 p-3.5 flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center font-bold text-white shadow">
+          <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center font-bold text-white shadow">
             ▲
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-100 text-sm tracking-tight">Apex Gear Co.</span>
+              <span className="font-bold text-slate-100 text-sm tracking-tight">TrailCo. UK Storefront</span>
               <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 font-mono">
                 Storefront DOM
               </span>
             </div>
-            <p className="text-[11px] text-slate-400">Technical Mountain Apparel & Ultralight Gear</p>
+            <p className="text-[11px] text-slate-400">Technical Mountain Equipment & Ultralight Packs</p>
           </div>
         </div>
 
@@ -112,21 +134,21 @@ export const Storefront: React.FC<StorefrontProps> = ({
           </span>
           {cart.total > 0 && (
             <span className="text-emerald-400 font-mono text-[11px] font-bold hidden sm:inline">
-              ${cart.total.toFixed(2)}
+              £{cart.total.toFixed(2)}
             </span>
           )}
         </button>
       </div>
 
       {/* Store Banner */}
-      <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900 to-indigo-950/60 border-b border-slate-800 px-4 py-2 flex items-center justify-between text-[11px] text-slate-300 shrink-0">
+      <div className="bg-gradient-to-r from-sky-950/60 via-slate-900 to-indigo-950/60 border-b border-slate-800 px-4 py-2 flex items-center justify-between text-[11px] text-slate-300 shrink-0">
         <div className="flex items-center gap-2">
-          <Truck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Free Express Shipping on orders over <strong className="text-emerald-400">$99</strong></span>
+          <Truck className="w-3.5 h-3.5 text-sky-400" />
+          <span>Free Royal Mail Tracked 24 on orders over <strong className="text-sky-400">£50</strong></span>
         </div>
         <div className="flex items-center gap-2 text-slate-400">
           <Shield className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Lifetime Warranty</span>
+          <span>2-Year UK Warranty</span>
         </div>
       </div>
 
@@ -175,14 +197,14 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 onClick={() => handleOpenProduct(product)}
                 className={`group bg-slate-900/70 border rounded-xl overflow-hidden hover:border-slate-700 transition cursor-pointer flex flex-col relative ${
                   highlighted 
-                    ? 'agent-highlight border-cyan-400 ring-2 ring-cyan-500/40 bg-slate-900' 
+                    ? 'border-sky-500 ring-2 ring-sky-500/30 bg-slate-900 shadow-lg' 
                     : 'border-slate-800'
                 }`}
               >
                 {/* Agent Activity Badge on Card */}
                 {highlighted && (
-                  <div className="absolute top-2 left-2 z-10 bg-cyan-500 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
-                    <Sparkles className="w-3 h-3 animate-spin" />
+                  <div className="absolute top-2 left-2 z-10 bg-sky-500 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
+                    <Sparkles className="w-3 h-3" />
                     <span>Agent Query Target</span>
                   </div>
                 )}
@@ -195,7 +217,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                   />
                   <div className="absolute bottom-2 right-2 bg-slate-950/80 backdrop-blur px-2 py-0.5 rounded text-[11px] font-mono text-emerald-400 font-bold border border-slate-800">
-                    ${product.price.toFixed(2)}
+                    £{product.price.toFixed(2)}
                   </div>
                   {product.attributes.waterproof && (
                     <div className="absolute top-2 right-2 bg-indigo-950/90 text-indigo-300 border border-indigo-500/40 text-[10px] px-1.5 py-0.5 rounded font-medium">
@@ -232,7 +254,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                         </span>
                       ) : lowStock ? (
                         <span className="text-amber-400 font-mono text-[11px] flex items-center gap-1">
-                          <Flame className="w-3 h-3 text-amber-400 animate-pulse" /> Only {totalStock} left
+                          <Flame className="w-3 h-3 text-amber-400" /> Only {totalStock} left
                         </span>
                       ) : (
                         <span className="text-emerald-400 font-mono text-[11px] flex items-center gap-1">
@@ -240,7 +262,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] text-cyan-400 group-hover:underline">
+                    <span className="text-[11px] text-sky-400 group-hover:underline">
                       {product.variants.length} Options →
                     </span>
                   </div>
@@ -270,9 +292,9 @@ export const Storefront: React.FC<StorefrontProps> = ({
 
             <h2 className="text-lg font-bold text-slate-100 mb-1">{selectedProduct.title}</h2>
             <div className="flex items-center gap-3 text-xs mb-3">
-              <span className="text-lg font-bold font-mono text-emerald-400">${selectedProduct.price.toFixed(2)}</span>
+              <span className="text-lg font-bold font-mono text-emerald-400">£{selectedProduct.price.toFixed(2)}</span>
               {selectedProduct.originalPrice && (
-                <span className="text-slate-500 line-through font-mono">${selectedProduct.originalPrice.toFixed(2)}</span>
+                <span className="text-slate-500 line-through font-mono">£{selectedProduct.originalPrice.toFixed(2)}</span>
               )}
               <div className="flex items-center gap-1 text-amber-400 ml-auto">
                 <Star className="w-3.5 h-3.5 fill-amber-400" />
@@ -298,7 +320,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                       onClick={() => setSelectedVariant(v)}
                       disabled={available <= 0}
                       className={`p-2 rounded-lg text-left border text-xs transition ${
-                        isVarHighlighted ? 'agent-highlight border-cyan-400' : ''
+                        isVarHighlighted ? 'border-sky-400 ring-2 ring-sky-500/40 bg-slate-900' : ''
                       } ${
                         isSelected 
                           ? 'border-emerald-500 bg-emerald-950/30 text-slate-100' 
@@ -324,7 +346,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
             <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs mb-4">
               <span className="font-semibold text-slate-300 block mb-1.5">Technical Specifications:</span>
               <div className="grid grid-cols-2 gap-2 text-slate-400 text-[11px]">
-                <div>Waterproof: <strong className="text-slate-200">{selectedProduct.attributes.waterproof ? 'Yes (GORE-TEX)' : 'No'}</strong></div>
+                <div>Waterproof: <strong className="text-slate-200">{selectedProduct.attributes.waterproof ? 'Yes (Seam-Taped)' : 'No'}</strong></div>
                 {selectedProduct.attributes.weightGrams && (
                   <div>Weight: <strong className="text-slate-200">{selectedProduct.attributes.weightGrams}g</strong></div>
                 )}
@@ -347,7 +369,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-semibold py-2 px-4 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow"
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span>Add to Cart ({selectedVariant ? `$${selectedVariant.price.toFixed(2)}` : ''})</span>
+                <span>Add to Cart ({selectedVariant ? `£${selectedVariant.price.toFixed(2)}` : ''})</span>
               </button>
             </div>
           </div>
@@ -373,6 +395,17 @@ export const Storefront: React.FC<StorefrontProps> = ({
               </button>
             </div>
 
+            {/* Active TTL Reservation Chip */}
+            {cart.reservationExpiresAt && remainingSeconds !== null && remainingSeconds > 0 && (
+              <div className="bg-amber-950/40 border border-amber-500/40 rounded-lg p-2 mt-3 flex items-center justify-between text-xs text-amber-300 font-mono shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  <span>Inventory Soft Lock:</span>
+                </div>
+                <strong className="text-amber-200 font-bold">{formatCountdown(remainingSeconds)} remaining</strong>
+              </div>
+            )}
+
             {/* Cart Items List */}
             <div className="flex-1 overflow-y-auto py-3 space-y-3">
               {cart.items.length === 0 ? (
@@ -388,7 +421,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
                       <div className="font-medium text-slate-200 line-clamp-1">{item.productTitle}</div>
                       <div className="text-[11px] text-slate-400">{item.variantName}</div>
                       <div className="flex items-center justify-between mt-1">
-                        <span className="font-mono text-emerald-400 font-semibold">${item.price.toFixed(2)} × {item.quantity}</span>
+                        <span className="font-mono text-emerald-400 font-semibold">£{item.price.toFixed(2)} × {item.quantity}</span>
                         <button
                           onClick={() => onRemoveFromCart(item.variantId)}
                           className="text-slate-500 hover:text-rose-400 text-[11px]"
@@ -426,26 +459,26 @@ export const Storefront: React.FC<StorefrontProps> = ({
                 <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5 text-xs font-mono">
                   <div className="flex justify-between text-slate-400">
                     <span>Subtotal:</span>
-                    <span>${cart.subtotal.toFixed(2)}</span>
+                    <span>£{cart.subtotal.toFixed(2)}</span>
                   </div>
                   {cart.discount > 0 && (
                     <div className="flex justify-between text-cyan-400">
                       <span>Discount ({cart.appliedPromo}):</span>
-                      <span>-${cart.discount.toFixed(2)}</span>
+                      <span>-£{cart.discount.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-slate-400">
                     <span>Shipping:</span>
-                    <span>{cart.shipping === 0 ? <strong className="text-emerald-400">FREE</strong> : `$${cart.shipping.toFixed(2)}`}</span>
+                    <span>{cart.shipping === 0 ? <strong className="text-emerald-400">FREE (Royal Mail 24)</strong> : `£${cart.shipping.toFixed(2)}`}</span>
                   </div>
                   <div className="flex justify-between text-slate-100 font-bold pt-1 border-t border-slate-800 text-sm">
                     <span>Total:</span>
-                    <span className="text-emerald-400">${cart.total.toFixed(2)}</span>
+                    <span className="text-emerald-400">£{cart.total.toFixed(2)}</span>
                   </div>
                 </div>
 
                 <button
-                  onClick={() => alert(`Checkout Deep-Link Redirect: https://apexgear.demo/checkout?session=${cart.id}&total=${cart.total.toFixed(2)}`)}
+                  onClick={() => alert(`Checkout Deep-Link Redirect: https://trailco.co.uk/checkout?session=${cart.id}&total=${cart.total.toFixed(2)}`)}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg text-xs transition shadow-lg shadow-emerald-950 flex items-center justify-center gap-2"
                 >
                   <span>Proceed to Checkout</span>

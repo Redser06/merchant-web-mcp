@@ -17,7 +17,7 @@ export function createShopifyMcpServer(shopifyClient: any) {
   server.tool("search_products", {
     query: z.string(),
     max_price: z.number().optional()
-  }, async ({ query, max_price }) => {
+  }, async ({ query, max_price: _max_price }) => {
     const response = await shopifyClient.request(`
       query SearchProducts($query: String!) {
         products(first: 10, query: $query) {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type { 
   JsonRpcFrame, 
   SecurityEvent, 
@@ -30,66 +30,70 @@ export const App: React.FC = () => {
     cartVal: 0
   });
 
-  // Initialize engine and security guard with stable refs
-  const securityGuardRef = useRef<SecurityGuard | null>(null);
-  const engineRef = useRef<MerchantMcpEngine | null>(null);
+  const triggerUpdate = useCallback(() => {
+    setTick(t => t + 1);
+  }, []);
 
-  if (!securityGuardRef.current) {
-    securityGuardRef.current = new SecurityGuard((evt: SecurityEvent) => {
-      setSecurityEvents(prev => [evt, ...prev]);
-    });
-  }
+  const handleSecurityEvent = useCallback((evt: SecurityEvent) => {
+    setSecurityEvents(prev => [evt, ...prev]);
+  }, []);
 
-  if (!engineRef.current && securityGuardRef.current) {
-    engineRef.current = new MerchantMcpEngine(
-      securityGuardRef.current,
-      (frame: JsonRpcFrame) => {
-        setFrames(prev => [frame, ...prev.slice(0, 49)]); // Keep last 50 frames
-        if (frame.type === 'request' && frame.method === 'tools/call') {
-          setLiveSessionDelta(prev => ({
-            ...prev,
-            toolCalls: prev.toolCalls + 1,
-            intentVal: frame.params?.name === 'search_products' ? prev.intentVal + 89 : prev.intentVal,
-            cartVal: frame.params?.name === 'add_to_cart_session' ? prev.cartVal + 89 : prev.cartVal
-          }));
-        }
-      },
-      () => setTick(t => t + 1),
-      () => setTick(t => t + 1)
+  const handleFrameEvent = useCallback((frame: JsonRpcFrame) => {
+    setFrames(prev => [frame, ...prev.slice(0, 49)]); // Keep last 50 frames
+    if (frame.type === 'request' && frame.method === 'tools/call') {
+      setLiveSessionDelta(prev => ({
+        ...prev,
+        toolCalls: prev.toolCalls + 1,
+        intentVal: frame.params?.name === 'search_products' ? prev.intentVal + 89 : prev.intentVal,
+        cartVal: frame.params?.name === 'add_to_cart_session' ? prev.cartVal + 89 : prev.cartVal
+      }));
+    }
+  }, []);
+
+  // Stable single instance of SecurityGuard and MerchantMcpEngine
+  const securityGuard = useMemo(() => {
+    return new SecurityGuard(handleSecurityEvent);
+  }, [handleSecurityEvent]);
+
+  const engine = useMemo(() => {
+    return new MerchantMcpEngine(
+      securityGuard,
+      handleFrameEvent,
+      triggerUpdate,
+      triggerUpdate
     );
-  }
+  }, [securityGuard, handleFrameEvent, triggerUpdate]);
 
-  const engine = engineRef.current!;
   const products = engine.getProducts();
   const cart = engine.getCart();
 
-  const handleAddToCart = (variantId: string, quantity: number) => {
+  const handleAddToCart = useCallback((variantId: string, quantity: number) => {
     engine.executeRpc('tools/call', {
       name: 'add_to_cart_session',
       arguments: { variant_id: variantId, quantity }
     });
-    setTick(t => t + 1);
-  };
+    triggerUpdate();
+  }, [engine, triggerUpdate]);
 
-  const handleRemoveFromCart = (variantId: string) => {
+  const handleRemoveFromCart = useCallback((variantId: string) => {
     engine.removeCartItem(variantId);
-    setTick(t => t + 1);
-  };
+    triggerUpdate();
+  }, [engine, triggerUpdate]);
 
-  const handleApplyPromo = (code: string) => {
+  const handleApplyPromo = useCallback((code: string) => {
     engine.applyCartPromo(code);
-    setTick(t => t + 1);
-  };
+    triggerUpdate();
+  }, [engine, triggerUpdate]);
 
-  const handleResetState = () => {
+  const handleResetState = useCallback(() => {
     engine.resetState();
-    securityGuardRef.current?.clearEvents();
+    securityGuard.clearEvents();
     setFrames([]);
     setSecurityEvents([]);
     setActiveStep(undefined);
     setLiveSessionDelta({ sessions: 0, toolCalls: 0, intentVal: 0, cartVal: 0 });
-    setTick(t => t + 1);
-  };
+    triggerUpdate();
+  }, [engine, securityGuard, triggerUpdate]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none">
@@ -141,7 +145,7 @@ export const App: React.FC = () => {
                 engine={engine}
                 cart={cart}
                 onStepChange={setActiveStep}
-                onRefreshData={() => setTick(t => t + 1)}
+                onRefreshData={triggerUpdate}
               />
             </div>
 
@@ -189,7 +193,7 @@ export const App: React.FC = () => {
               engine={engine}
               cart={cart}
               onStepChange={setActiveStep}
-              onRefreshData={() => setTick(t => t + 1)}
+              onRefreshData={triggerUpdate}
             />
           </div>
         )}

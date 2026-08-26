@@ -1,38 +1,48 @@
-# Merchant Web MCP Plugin & Interactive Simulation Cockpit
+# Merchant Web MCP — Agent Analytics & Operability Prototype
 
-> **Make any e-commerce storefront discoverable, operable, and deterministically transactable for AI shopping agents.**
+> **Turn any e-commerce storefront into an observable, measurable, and transactable platform for AI shopping agents.**
 
-[![Protocol Spec](https://img.shields.io/badge/MCP_Protocol-2024--11--05-cyan.svg)](https://modelcontextprotocol.io)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Egress Savings](https://img.shields.io/badge/Token_Egress_Saved-94.2%25-emerald.svg)]()
-
----
-
-## 🎯 Executive Problem Statement
-
-Autonomous AI shopping agents (ChatGPT Agent, Claude Code, Apple Intelligence, Perplexity, procurement bots) fail when shopping traditional websites:
-1. **DOM Fragility & Cost:** Screen-scraping and browser automation consume 6,000–10,000 tokens per page, fail on dynamic React hydration, and break on UI redesigns.
-2. **Hallucination of Inventory:** Static sitemaps and JSON-LD feeds lack live stock counts and delivery timelines.
-3. **The Checkout Cliff:** Unsafe transmission of raw credit cards in LLM prompt arguments vs. lack of structured cart handoff protocols.
-
-**The Solution:** The **Merchant Web MCP Plugin** provides an out-of-the-box edge gateway (`/.well-known/mcp`) and client script (`window.__MERCHANT_MCP__`) that exposes standardized JSON-RPC 2.0 tools for real-time catalog search, inventory reservation, promo validation, and signed 1-click checkout sessions.
+[![Build & Test](https://github.com/Redser06/merchant-web-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Redser06/merchant-web-mcp/actions/workflows/ci.yml)
+[![Protocol Spec](https://img.shields.io/badge/MCP_Protocol-2024--11--05-blue.svg)](https://modelcontextprotocol.io)
+[![License](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 
 ---
 
-## 🏗️ Architecture & Core Components
+> [!NOTE]
+> **Prototype & Simulation Notice:**
+> This repository contains an **interactive simulation cockpit and prototype** of the proposed BigCommerce / Merchant Web MCP plugin architecture. The simulation engine runs client-side with simulated latency, genuine Web Crypto HMAC-SHA256 signing, real 15-minute TTL inventory reservation timers, and an executive Agent Intent Analytics dashboard.
+
+---
+
+## 🎯 The Core Problem & Value Proposition
+
+### The Near-Term Reality: Blindness to Agent Traffic
+Today, merchants are blind to AI shopping agents (ChatGPT Agent, Claude, Perplexity, Apple Intelligence). When bots scrape product pages:
+- Traffic is indistinguishable from dumb web scrapers.
+- Visual scraping consumes 6,000–10,000 tokens per page and frequently breaks on React hydration or DOM redesigns.
+- Merchants have **zero visibility** into what products agents are searching for, what queries fail, and what commercial demand passes through uncaptured.
+
+### The Solution: BigCommerce Merchant Web MCP
+1. **Agent Intent Analytics (Immediate SaaS Value):** Captures incoming agent sessions, tool executions, discovered intent value (£124k+ pipeline), provider breakdown, and catalog demand gaps.
+2. **Deterministic MCP Interface:** Exposes structured JSON-RPC tools (`search_products`, `get_product_details`, `check_variant_stock`, `apply_promotions`, `add_to_cart_session`, `create_checkout_session`).
+3. **Verified Cryptographic Handoff:** Generates signed checkout URLs using genuine Web Crypto HMAC-SHA256 tokens with 15-minute ephemeral inventory soft-locks.
+
+---
+
+## 🏗️ Architecture Overview
 
 ```
 ┌────────────────────────────────────────────────────────┐
 │                   AI Shopping Agent                    │
-│          (Claude / ChatGPT / Autonomous Bot)           │
+│             (Claude / ChatGPT / Perplexity)            │
 └───────────────────────────┬────────────────────────────┘
                             │ (1) Discover: /.well-known/mcp.json
-                            │ (2) Transport: HTTP SSE Stream
+                            │ (2) Transport: HTTP / SSE Stream
                             ▼
 ┌────────────────────────────────────────────────────────┐
-│               Merchant Web MCP Gateway                 │
+│             Merchant Web MCP Plugin Engine             │
 │  ┌──────────────────────────────────────────────────┐  │
-│  │   Edge Security Guard (Injection & Rate Limiter) │  │
+│  │ Layered Security Guard (Unicode Filter & Regex)  │  │
 │  └────────────────────────┬─────────────────────────┘  │
 │                           │                             │
 │  ┌────────────────────────▼─────────────────────────┐  │
@@ -41,7 +51,7 @@ Autonomous AI shopping agents (ChatGPT Agent, Claude Code, Apple Intelligence, P
 │  │  • check_variant_stock(variant_id, postal_code)  │  │
 │  │  • apply_promotions(promo_code, subtotal)        │  │
 │  │  • add_to_cart_session(variant_id, qty) [15m TTL]│  │
-│  │  • create_checkout_session(cart_id, mode)        │  │
+│  │  • create_checkout_session (WebCrypto HMAC SHA256│  │
 │  │  • get_store_policies()                          │  │
 │  └────────────────────────┬─────────────────────────┘  │
 └───────────────────────────┼────────────────────────────┘
@@ -50,61 +60,41 @@ Autonomous AI shopping agents (ChatGPT Agent, Claude Code, Apple Intelligence, P
             ▼                               ▼
 ┌───────────────────────┐       ┌───────────────────────┐
 │ Merchant Catalog / DB │       │ Storefront Cart & DOM │
-│ (D1 / Shopify / Woo)  │       │ (Live State Sync)     │
+│ (BigCommerce / D1)    │       │ (Live State Sync)     │
 └───────────────────────┘       └───────────────────────┘
 ```
 
 ---
 
-## 🚀 Running the Interactive Simulation Cockpit
-
-This repository contains a full **3-Panel Interactive Cockpit** demonstrating the plugin executing live:
-
-1. **Left Panel (Storefront DOM):** Live e-commerce store with product cards, variant selectors, real-time inventory counts, and cart drawer with DOM highlight rings.
-2. **Center Panel (Protocol Wire HUD):** Live streaming JSON-RPC 2.0 frames with latency meters, token egress savings calculator (94.2%), and tool schema browser.
-3. **Right Panel (AI Agent Simulator):** Interactive autonomous shopping engine with 4 pre-built scenarios and custom natural language prompt runner.
+## 🚀 Running the Cockpit & Tests
 
 ### Quick Start
 ```bash
 # 1. Install dependencies
-bun install   # or npm install
+bun install
 
-# 2. Start development server
-bun dev       # or npm run dev
+# 2. Run test suite (7 tests, 27 assertions)
+bun test
+
+# 3. Start development server
+bun run dev
 ```
+
+### Live Deployments
+- **Interactive Simulation Cockpit:** [https://merchant-web-mcp.web.app](https://merchant-web-mcp.web.app)
+- **Standalone Projector Demo (Single File HTML):** [https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html](https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html)
 
 ---
 
-## 📦 Merchant Integration Snippets
+## 🛡️ Security & Integrity Highlights in this Repo
 
-### 1. Client-Side Script Embed
-```html
-<script 
-  src="https://cdn.merchantmcp.dev/v1/merchant-mcp.min.js" 
-  data-store-id="apex-gear-01"
-  data-mcp-endpoint="https://api.apexgear.com/.well-known/mcp"
-  async>
-</script>
-```
-
-### 2. Manifest Discovery (`/.well-known/mcp.json`)
-```json
-{
-  "mcp_version": "2024-11-05",
-  "server": {
-    "name": "Apex Gear Co. Merchant MCP",
-    "transport": { "type": "sse", "url": "https://apexgear.demo/.well-known/mcp" }
-  },
-  "capabilities": {
-    "tools": ["search_products", "check_variant_stock", "add_to_cart_session", "create_checkout_session"]
-  }
-}
-```
+- **Genuine Web Crypto HMAC-SHA256:** Implemented in [`src/mcp/cryptoAuth.ts`](src/mcp/cryptoAuth.ts) using standard `crypto.subtle`. Signatures are cryptographically verified upon checkout session generation.
+- **Active TTL Inventory Expiration:** Implemented in [`src/mcp/merchantMcpEngine.ts`](src/mcp/merchantMcpEngine.ts). Ephemeral reservations expire after 900 seconds (15 mins), automatically returning stock to available inventory and notifying the client wire HUD.
+- **Layered Defense-in-Depth:** Implemented in [`src/mcp/securityGuard.ts`](src/mcp/securityGuard.ts). Normalizes Unicode/zero-width obfuscation and scans across customer reviews, search queries, and promo arguments.
+- **Multi-Cart Isolation:** Engine maps carts explicitly by `cart_id`, rejecting checkout attempts on invalid or foreign cart sessions.
 
 ---
 
-## 🛡️ Security & Safeguards
+## 🗺️ Roadmap & Production Specification
 
-- **Adversarial Injection Containment:** Built-in pattern scanning neutralizes prompt injection payloads in user reviews and product descriptions before reaching agent context.
-- **Inventory Anti-Hoard Soft Locks:** Cart reservations automatically expire after 900 seconds (15 minutes) if checkout is not completed.
-- **Signed Checkout Sessions:** Deep links use HMAC-SHA256 signatures to prevent client-side cart tampering.
+For the target Cloudflare Worker + BigCommerce edge server specification, see [`ROADMAP.md`](ROADMAP.md).
