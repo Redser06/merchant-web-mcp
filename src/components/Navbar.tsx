@@ -1,18 +1,18 @@
 import React from 'react';
 import { 
-  Bot, 
   Layers, 
   Zap, 
   Code2, 
   RotateCcw, 
   ShieldCheck, 
   Sparkles,
-  Store
+  Store,
+  BarChart3
 } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'cockpit' | 'protocol' | 'store' | 'agent';
-  setActiveTab: (tab: 'cockpit' | 'protocol' | 'store' | 'agent') => void;
+  activeTab: 'cockpit' | 'analytics' | 'protocol' | 'store' | 'agent';
+  setActiveTab: (tab: 'cockpit' | 'analytics' | 'protocol' | 'store' | 'agent') => void;
   onOpenCodeModal: () => void;
   onResetState: () => void;
   cartCount: number;
@@ -33,19 +33,19 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40 px-4 py-2.5">
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
         
-        {/* Brand & Badge */}
+        {/* Brand & BigCommerce Plugin Badge */}
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
-            <Bot className="w-5 h-5" />
+          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 font-bold">
+            M
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-100 text-base tracking-tight">Merchant Web MCP</span>
-              <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                v1.2.0 (2024-11-05)
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                BigCommerce Plugin
               </span>
             </div>
-            <p className="text-xs text-slate-400">Out-of-the-box Agent Protocol Engine for E-Commerce</p>
+            <p className="text-xs text-slate-400">Agent Visibility, Intent Analytics & Operability Gateway</p>
           </div>
         </div>
 
@@ -55,19 +55,31 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveTab('cockpit')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
               activeTab === 'cockpit' 
-                ? 'bg-indigo-600 text-white shadow-sm' 
+                ? 'bg-indigo-600 text-white shadow-sm font-semibold' 
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
             <span>3-Panel Cockpit</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
+              activeTab === 'analytics' 
+                ? 'bg-indigo-600 text-white shadow-sm font-semibold' 
+                : 'text-amber-400 hover:text-amber-300 font-semibold'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Agent Analytics</span>
+          </button>
           
           <button
             onClick={() => setActiveTab('store')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
               activeTab === 'store' 
-                ? 'bg-indigo-600 text-white shadow-sm' 
+                ? 'bg-indigo-600 text-white shadow-sm font-semibold' 
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -79,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveTab('protocol')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
               activeTab === 'protocol' 
-                ? 'bg-indigo-600 text-white shadow-sm' 
+                ? 'bg-indigo-600 text-white shadow-sm font-semibold' 
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -91,7 +103,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveTab('agent')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
               activeTab === 'agent' 
-                ? 'bg-indigo-600 text-white shadow-sm' 
+                ? 'bg-indigo-600 text-white shadow-sm font-semibold' 
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -103,10 +115,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Live Metrics & Actions */}
         <div className="flex items-center gap-2.5">
           
-          {/* Egress Token Savings Pill */}
-          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-xs font-mono">
-            <Zap className="w-3 h-3 text-emerald-400 animate-pulse" />
-            <span>94.2% Egress Saved</span>
+          {/* Intent Analytics Discovered Tag */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-950/60 border border-amber-500/30 text-amber-300 text-xs font-mono">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span>£124.6k Discovered Intent</span>
           </div>
 
           {/* Security Guard Status */}

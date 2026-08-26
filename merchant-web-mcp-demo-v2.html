@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Merchant Web MCP — Agent Analytics & Operability Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0d13;
+      --panel: #131722;
+      --panel-elevated: #181e2c;
+      --border: #232a3b;
+      --border-focus: #3b82f6;
+      --text: #94a3b8;
+      --text-heading: #f8fafc;
+      --text-muted: #64748b;
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-cyan: #06b6d4;
+      --accent-rose: #f43f5e;
+      --glow-blue: rgba(59, 130, 246, 0.25);
+      --glow-purple: rgba(139, 92, 246, 0.25);
+      --glow-emerald: rgba(16, 185, 129, 0.25);
+      --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Navbar */
+    header {
+      background: rgba(19, 23, 34, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 17px;
+      box-shadow: 0 4px 14px var(--glow-purple);
+    }
+
+    .brand-text h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-heading);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-text p {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-primary { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pill-metric {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(24, 30, 44, 0.9);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-heading);
+    }
+
+    .dot-live {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Main 2-Column Split Body */
+    .main-stage {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Left Column: Merchant Storefront */
+    .store-column {
+      background: #0d1017;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .store-header {
+      padding: 12px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .store-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .store-logo {
+      width: 28px;
+      height: 28px;
+      background: #0284c7;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .store-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-heading);
+    }
+    .store-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .store-cart-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--panel-elevated);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-heading);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .store-cart-badge.highlight {
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 16px var(--glow-emerald);
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      transform: scale(1.04);
+    }
+
+    .store-promo-bar {
+      background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+      border-bottom: 1px solid var(--border);
+      padding: 6px 18px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #93c5fd;
+    }
+
+    .store-grid {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 14px;
+      align-content: start;
+    }
+
+    .product-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .product-card:hover {
+      border-color: #334155;
+      transform: translateY(-2px);
+    }
+    .product-card.targeted {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px var(--accent-blue), 0 8px 24px var(--glow-blue);
+      background: var(--panel-elevated);
+    }
+    .product-card.added-cart {
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 0 2px var(--accent-emerald), 0 8px 24px var(--glow-emerald);
+    }
+
+    .product-img {
+      height: 125px;
+      width: 100%;
+      object-fit: cover;
+      background: #0f172a;
+    }
+
+    .product-body {
+      padding: 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .product-category {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: #38bdf8;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .product-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-heading);
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+
+    .product-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .product-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .product-price {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-emerald);
+      font-family: var(--font-mono);
+    }
+
+    .product-stock {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+    }
+    .product-stock.in-stock { color: #34d399; background: rgba(16, 185, 129, 0.1); }
+    .product-stock.low-stock { color: #fbbf24; background: rgba(245, 158, 11, 0.1); }
+    .product-stock.out-stock { color: #f87171; background: rgba(239, 68, 68, 0.1); }
+
+    .agent-tag {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      color: white;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      display: none;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      z-index: 5;
+    }
+    .product-card.targeted .agent-tag,
+    .product-card.added-cart .agent-tag {
+      display: flex;
+    }
+
+    /* Right Column: The Agent's Live Trace */
+    .agent-column {
+      background: #090b10;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .agent-header {
+      padding: 12px 18px;
+      background: rgba(19, 23, 34, 0.95);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .agent-identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .agent-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #7c3aed;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 13px;
+    }
+
+    .trace-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+    }
+
+    .prompt-bubble {
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(59, 130, 246, 0.15));
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: #e2e8f0;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      position: relative;
+    }
+    .prompt-label {
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: #a78bfa;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tool-card {
+      background: #11141d;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .tool-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .tool-card.active {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+    }
+
+    .tool-card-header {
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tool-name-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #60a5fa;
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    .tool-latency {
+      font-size: 10px;
+      color: var(--text-muted);
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .tool-section {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .tool-section:last-child { border-bottom: none; }
+
+    .tool-sublabel {
+      font-size: 9.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .json-code {
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+    .json-key { color: #94a3b8; }
+    .json-str { color: #34d399; }
+    .json-num { color: #f59e0b; }
+    .json-bool { color: #a78bfa; }
+
+    .thought-card {
+      background: rgba(24, 30, 44, 0.7);
+      border-left: 3px solid #8b5cf6;
+      border-radius: 4px 8px 8px 4px;
+      padding: 8px 12px;
+      color: #cbd5e1;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      line-height: 1.45;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: all 0.3s ease;
+    }
+    .thought-card.visible { opacity: 1; transform: translateY(0); }
+
+    /* Bottom Section: Merchant Analytics Panel (THE HERO PAYOFF) */
+    .analytics-tray {
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .analytics-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .analytics-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .analytics-headline {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-heading);
+      letter-spacing: -0.2px;
+    }
+    .analytics-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .metric-card {
+      background: var(--panel-elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--card-accent, var(--accent-blue));
+    }
+
+    .metric-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-val {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-heading);
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .metric-change {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent-emerald);
+      font-family: var(--font-mono);
+    }
+
+    /* Control Bar Footer */
+    footer {
+      background: #0d1017;
+      border-top: 1px solid var(--border);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .controls-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      background: var(--panel-elevated);
+      color: var(--text-heading);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .btn:hover {
+      background: #232b3f;
+      border-color: #3b82f6;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      color: white;
+      border: none;
+      box-shadow: 0 2px 10px var(--glow-blue);
+    }
+    .btn-primary:hover {
+      filter: brightness(1.1);
+    }
+
+    .progress-wrap {
+      flex: 1;
+      max-width: 400px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .progress-bar-bg {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Modals & Popups */
+    .view-mode-toggle {
+      display: flex;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+    }
+    .view-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .view-btn.active {
+      background: var(--panel-elevated);
+      color: var(--text-heading);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Typing cursor */
+    .typing-cursor::after {
+      content: '▋';
+      display: inline-block;
+      vertical-align: middle;
+      color: var(--accent-purple);
+      animation: blink 0.9s infinite;
+      margin-left: 2px;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">M</div>
+      <div class="brand-text">
+        <h1>
+          Merchant Web MCP
+          <span class="badge badge-primary">BigCommerce Plugin</span>
+        </h1>
+        <p>Real-Time Agent Visibility, Intent Analytics & Operability Gateway</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="pill-metric">
+        <div class="dot-live"></div>
+        <span>Agent Traffic Monitor: <strong style="color:#34d399">ACTIVE</strong></span>
+      </div>
+
+      <div class="pill-metric">
+        <span style="color:#a78bfa">MCP Spec:</span>
+        <strong>2024-11-05</strong>
+      </div>
+
+      <div class="view-mode-toggle">
+        <button class="view-btn active" id="btnModeLive" onclick="setMode('live')">Live Journey</button>
+        <button class="view-btn" id="btnModeAnalytics" onclick="setMode('analytics')">Full Analytics</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Stage: Live Preview vs Agent Trace -->
+  <div class="main-stage" id="mainStage">
+
+    <!-- Left Column: The Merchant Store (TrailCo.) -->
+    <div class="store-column">
+      <div class="store-header">
+        <div class="store-brand">
+          <div class="store-logo">▲</div>
+          <div>
+            <div class="store-title">TrailCo. UK Storefront</div>
+            <div class="store-sub">bigcommerce-live.trailco.co.uk</div>
+          </div>
+        </div>
+
+        <div class="store-cart-badge" id="storeCartBadge">
+          <span>🛒 Cart</span>
+          <span id="cartCountBadge" style="background:#0284c7; color:white; border-radius:9999px; padding:1px 6px; font-size:11px;">0</span>
+          <span id="cartTotalHeader" style="color:#34d399; font-family:var(--font-mono); margin-left:2px;">£0.00</span>
+        </div>
+      </div>
+
+      <div class="store-promo-bar">
+        <span>🇬🇧 Free Royal Mail Tracked 24 on all UK orders over <strong>£50</strong></span>
+        <span style="color:var(--text-muted)">VAT Included</span>
+      </div>
+
+      <!-- Store Product Grid -->
+      <div class="store-grid" id="productGrid">
+        <!-- Product 1 (Target) -->
+        <div class="product-card" id="card_summit_40l">
+          <div class="agent-tag">🤖 Agent Target</div>
+          <img class="product-img" src="https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?auto=format&fit=crop&w=400&q=80" alt="Summit 40L Waterproof Backpack">
+          <div class="product-body">
+            <div>
+              <div class="product-category">Packs & Bags</div>
+              <h3 class="product-name">Summit 40L Waterproof Backpack</h3>
+              <p class="product-desc">Ultra-PE Dyneema composite with roll-top seal and taped seams. 100% waterproof.</p>
+            </div>
+            <div class="product-footer">
+              <span class="product-price">£89.00</span>
+              <span class="product-stock in-stock" id="stock_summit">12 in stock</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Product 2 -->
+        <div class="product-card" id="card_alpine_32l">
+          <img class="product-img" src="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=400&q=80" alt="Alpine Trail Pack 32L">
+          <div class="product-body">
+            <div>
+              <div class="product-category">Packs & Bags</div>
+              <h3 class="product-name">Alpine Trail Pack 32L</h3>
+              <p class="product-desc">Lightweight mountain daypack with integrated rain cover and hydration port.</p>
+            </div>
+            <div class="product-footer">
+              <span class="product-price">£115.00</span>
+              <span class="product-stock in-stock">8 in stock</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Product 3 -->
+        <div class="product-card" id="card_hydro_shell">
+          <img class="product-img" src="https://images.unsplash.com/photo-1544441893-675973e31985?auto=format&fit=crop&w=400&q=80" alt="HydroShield Waterproof Shell">
+          <div class="product-body">
+            <div>
+              <div class="product-category">Apparel</div>
+              <h3 class="product-name">HydroShield 3L Jacket</h3>
+              <p class="product-desc">28,000mm hydrostatic head alpine shell with pit zips and storm hood.</p>
+            </div>
+            <div class="product-footer">
+              <span class="product-price">£165.00</span>
+              <span class="product-stock in-stock">5 in stock</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Product 4 -->
+        <div class="product-card" id="card_merino_top">
+          <img class="product-img" src="https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=400&q=80" alt="Merino 200 Base Layer">
+          <div class="product-body">
+            <div>
+              <div class="product-category">Apparel</div>
+              <h3 class="product-name">Merino 200 Long Sleeve Top</h3>
+              <p class="product-desc">100% NZ merino wool. Odor-resistant thermal regulation for cold summits.</p>
+            </div>
+            <div class="product-footer">
+              <span class="product-price">£65.00</span>
+              <span class="product-stock in-stock">14 in stock</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Product 5 -->
+        <div class="product-card" id="card_carbon_poles">
+          <img class="product-img" src="https://images.unsplash.com/photo-1510312305653-8ed496efae75?auto=format&fit=crop&w=400&q=80" alt="TrailLite Carbon Trekking Poles">
+          <div class="product-body">
+            <div>
+              <div class="product-category">Gear</div>
+              <h3 class="product-name">TrailLite Carbon Poles</h3>
+              <p class="product-desc">3-section carbon fibre with ergonomic cork handles and quick flick-locks.</p>
+            </div>
+            <div class="product-footer">
+              <span class="product-price">£75.00</span>
+              <span class="product-stock low-stock">2 in stock</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Product 6 -->
+        <div class="product-card" id="card_snow_stakes">
+          <img class="product-img" src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=400&q=80" alt="Ultralight Tent Stakes (6x)">
+          <div class="product-body">
+            <div>
+              <div class="product-category">Hardware</div>
+              <h3 class="product-name">Titanium Y-Stakes (6x)</h3>
+              <p class="product-desc">High-strength titanium V-peg stakes for loose soil and high winds.</p>
+            </div>
+            <div class="product-footer">
+              <span class="product-price">£24.00</span>
+              <span class="product-stock in-stock">25 in stock</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: The Agent's Live Trace (Console) -->
+    <div class="agent-column">
+      <div class="agent-header">
+        <div class="agent-identity">
+          <div class="agent-avatar">🤖</div>
+          <div>
+            <div style="font-size:13px; font-weight:700; color:var(--text-heading)">Autonomous Shopping Agent</div>
+            <div style="font-size:10px; color:var(--text-muted); font-family:var(--font-mono)">Claude 3.7 Sonnet (MCP Client Runtime)</div>
+          </div>
+        </div>
+
+        <span class="badge badge-primary">Session: ses_agnt_uk_8829</span>
+      </div>
+
+      <!-- Scrollable Trace Feed -->
+      <div class="trace-feed" id="traceFeed">
+        
+        <!-- User Prompt -->
+        <div class="prompt-bubble">
+          <div class="prompt-label">
+            <span>Customer Intent Prompt</span>
+          </div>
+          <div id="promptText" class="typing-cursor">"Find a waterproof backpack under £100 that ships to the UK."</div>
+        </div>
+
+        <!-- Dynamic Container for Tool Cards -->
+        <div id="traceCardsContainer" style="display:flex; flex-direction:column; gap:12px;"></div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Hero Tray: Merchant Analytics Panel -->
+  <div class="analytics-tray">
+    <div class="analytics-top">
+      <div class="analytics-title-group">
+        <span style="font-size:16px">📊</span>
+        <div>
+          <h2 class="analytics-headline">Merchant Agent Analytics & Attribution</h2>
+          <p class="analytics-sub">Live intelligence captured from autonomous AI agent visits to your store</p>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:16px; align-items:center;">
+        <span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono)">Session Attribution: <strong style="color:#60a5fa" id="sessionAttrStatus">Tracking Active</strong></span>
+        <span class="badge badge-success">SaaS Value Today</span>
+      </div>
+    </div>
+
+    <div class="metrics-grid">
+      <!-- Metric 1: Agent Sessions -->
+      <div class="metric-card" style="--card-accent: var(--accent-blue)">
+        <span class="metric-label">Agent Sessions (Today)</span>
+        <div class="metric-val">
+          <span id="metricSessions">1,482</span>
+          <span class="metric-change">+38% vs human bot traffic</span>
+        </div>
+      </div>
+
+      <!-- Metric 2: Tool Calls -->
+      <div class="metric-card" style="--card-accent: var(--accent-purple)">
+        <span class="metric-label">Total MCP Tool Calls</span>
+        <div class="metric-val">
+          <span id="metricToolCalls">8,924</span>
+          <span class="metric-change" style="color:#a78bfa">6.02 calls/session</span>
+        </div>
+      </div>
+
+      <!-- Metric 3: Intent Value (£) -->
+      <div class="metric-card" style="--card-accent: var(--accent-amber)">
+        <span class="metric-label">Discovered Intent Value</span>
+        <div class="metric-val">
+          <span id="metricIntentVal">£124,650</span>
+          <span class="metric-change" style="color:#fbbf24">£84.10 avg basket</span>
+        </div>
+      </div>
+
+      <!-- Metric 4: Converted / Cart Add Value -->
+      <div class="metric-card" style="--card-accent: var(--accent-emerald)">
+        <span class="metric-label">Agent Cart Value Staged</span>
+        <div class="metric-val">
+          <span id="metricCartVal">£42,890</span>
+          <span class="metric-change">34.4% Conversion</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Control Bar -->
+  <footer>
+    <div class="controls-group">
+      <button class="btn btn-primary" id="btnPlayPause" onclick="togglePlay()">
+        <span id="playIcon">▶</span>
+        <span id="playText">Play Journey</span>
+      </button>
+
+      <button class="btn" id="btnStep" onclick="stepForward()">
+        <span>⏭</span>
+        <span>Next Step</span>
+      </button>
+
+      <button class="btn" onclick="resetDemo()">
+        <span>↺</span>
+        <span>Reset</span>
+      </button>
+    </div>
+
+    <div class="progress-wrap">
+      <span id="stepCounterLabel">Step 0 of 8</span>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressBarFill"></div>
+      </div>
+      <span id="stepStatusLabel">Ready</span>
+    </div>
+
+    <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono)">
+      BigCommerce Web MCP Gateway v1.2
+    </div>
+  </footer>
+
+  <!-- Script Execution Engine -->
+  <script>
+    // The exact 8-step script from the product specification
+    const SCRIPT_STEPS = [
+      {
+        stepIndex: 1,
+        type: 'tool',
+        tool: 'search_products',
+        latency: '28ms',
+        in: {
+          query: "waterproof backpack",
+          max_price: 100,
+          currency: "GBP",
+          shipping_destination: "GB"
+        },
+        out: {
+          total_matches: 2,
+          results: [
+            { id: "summit_40l", title: "Summit 40L Waterproof Backpack", price: 89.00, in_stock: true },
+            { id: "alpine_32l", title: "Alpine Trail Pack 32L", price: 115.00, in_stock: true }
+          ]
+        },
+        thought: "Filtered 6 catalog products down to 2 matching backpacks. Summit 40L (£89.00) meets the sub-£100 budget requirement.",
+        targetCard: "card_summit_40l",
+        analyticsDelta: { sessions: 1, toolCalls: 1, intent: 89.00, cartVal: 0 }
+      },
+      {
+        stepIndex: 2,
+        type: 'tool',
+        tool: 'get_product',
+        latency: '16ms',
+        in: {
+          product_id: "summit_40l",
+          include_specifications: true
+        },
+        out: {
+          id: "summit_40l",
+          title: "Summit 40L Waterproof Backpack",
+          price: 89.00,
+          currency: "GBP",
+          waterproof: true,
+          material: "Ultra-PE Dyneema Composite + Seam Taped",
+          capacity: "40 Litres",
+          weight: "520g"
+        },
+        thought: "Inspecting technical specifications: verified 100% waterproof construction with roll-top seal and taped seams.",
+        targetCard: "card_summit_40l",
+        analyticsDelta: { sessions: 0, toolCalls: 1, intent: 0, cartVal: 0 }
+      },
+      {
+        stepIndex: 3,
+        type: 'tool',
+        tool: 'check_stock',
+        latency: '19ms',
+        in: {
+          product_id: "summit_40l",
+          warehouse_region: "UK-North"
+        },
+        out: {
+          product_id: "summit_40l",
+          in_stock: true,
+          quantity_available: 12,
+          warehouse_location: "Manchester Distribution Hub (UK)",
+          soft_lock_supported: true
+        },
+        thought: "Confirmed live warehouse inventory: 12 units available in UK Manchester hub.",
+        targetCard: "card_summit_40l",
+        analyticsDelta: { sessions: 0, toolCalls: 1, intent: 0, cartVal: 0 }
+      },
+      {
+        stepIndex: 4,
+        type: 'tool',
+        tool: 'get_shipping',
+        latency: '24ms',
+        in: {
+          destination_country: "GB",
+          package_weight_grams: 520,
+          order_subtotal: 89.00
+        },
+        out: {
+          carrier: "Royal Mail Tracked 24",
+          estimated_delivery: "2-3 Business Days",
+          shipping_cost: 0.00,
+          free_shipping_applied: true,
+          threshold_met: "£89.00 >= £50.00"
+        },
+        thought: "Verified delivery rates: order qualifies for Free Royal Mail Tracked 24 delivery to the UK.",
+        targetCard: "card_summit_40l",
+        analyticsDelta: { sessions: 0, toolCalls: 1, intent: 0, cartVal: 0 }
+      },
+      {
+        stepIndex: 5,
+        type: 'thought_card',
+        thought: "Great — Summit 40L is in stock and ships free to the UK. Proceeding to add to merchant cart.",
+        targetCard: "card_summit_40l",
+        analyticsDelta: { sessions: 0, toolCalls: 0, intent: 0, cartVal: 0 }
+      },
+      {
+        stepIndex: 6,
+        type: 'tool',
+        tool: 'add_to_cart',
+        latency: '34ms',
+        in: {
+          product_id: "summit_40l",
+          quantity: 1,
+          reservation_lock_minutes: 15
+        },
+        out: {
+          cart_id: "cart_bc_uk_99182",
+          items_count: 1,
+          subtotal: 89.00,
+          currency: "GBP",
+          shipping: "FREE",
+          total: 89.00,
+          inventory_soft_locked: true,
+          expires_at: "15:00 min remaining"
+        },
+        thought: "Item added to cart with 15-minute reservation lock. Cart total: £89.00.",
+        targetCard: "card_summit_40l",
+        cartAction: true,
+        analyticsDelta: { sessions: 0, toolCalls: 1, intent: 0, cartVal: 89.00 }
+      },
+      {
+        stepIndex: 7,
+        type: 'thought_card',
+        thought: "Order ready for review. Handing off pre-populated signed checkout session to customer for biometric confirmation.",
+        targetCard: "card_summit_40l",
+        analyticsDelta: { sessions: 0, toolCalls: 0, intent: 0, cartVal: 0 }
+      },
+      {
+        stepIndex: 8,
+        type: 'summary',
+        thought: "Session Complete — Merchant Web MCP captured 5 tool calls, £89.00 high-intent demand, and staged checkout handoff.",
+        analyticsDelta: { sessions: 0, toolCalls: 0, intent: 0, cartVal: 0 }
+      }
+    ];
+
+    // State Variables
+    let currentStep = 0;
+    let isPlaying = false;
+    let playTimer = null;
+
+    let baseSessions = 1482;
+    let baseToolCalls = 8924;
+    let baseIntentVal = 124650;
+    let baseCartVal = 42890;
+
+    // Syntax highlight JSON
+    function syntaxHighlight(json) {
+      if (typeof json !== 'string') {
+        json = JSON.stringify(json, null, 2);
+      }
+      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        let cls = 'json-num';
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'json-key';
+          } else {
+            cls = 'json-str';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'json-bool';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+    }
+
+    function renderStep(step) {
+      const container = document.getElementById('traceCardsContainer');
+      const traceFeed = document.getElementById('traceFeed');
+
+      // Clear previous active states on store
+      document.querySelectorAll('.product-card').forEach(c => c.classList.remove('targeted'));
+
+      if (step.targetCard) {
+        const el = document.getElementById(step.targetCard);
+        if (el) el.classList.add('targeted');
+      }
+
+      if (step.cartAction) {
+        const card = document.getElementById('card_summit_40l');
+        if (card) card.classList.add('added-cart');
+        const cartBadge = document.getElementById('storeCartBadge');
+        cartBadge.classList.add('highlight');
+        document.getElementById('cartCountBadge').textContent = '1';
+        document.getElementById('cartTotalHeader').textContent = '£89.00';
+        document.getElementById('stock_summit').textContent = '11 in stock (1 reserved)';
+      }
+
+      if (step.type === 'tool') {
+        const card = document.createElement('div');
+        card.className = 'tool-card';
+        card.innerHTML = `
+          <div class="tool-card-header">
+            <div class="tool-name-badge">
+              <span>⚡</span>
+              <span>MCP TOOL: ${step.tool}</span>
+            </div>
+            <span class="tool-latency">${step.latency}</span>
+          </div>
+          <div class="tool-section">
+            <div class="tool-sublabel">Input Arguments (JSON-RPC)</div>
+            <pre class="json-code">${syntaxHighlight(step.in)}</pre>
+          </div>
+          <div class="tool-section">
+            <div class="tool-sublabel">Output Result</div>
+            <pre class="json-code">${syntaxHighlight(step.out)}</pre>
+          </div>
+        `;
+        container.appendChild(card);
+        setTimeout(() => card.classList.add('visible', 'active'), 20);
+
+        if (step.thought) {
+          const thought = document.createElement('div');
+          thought.className = 'thought-card';
+          thought.innerHTML = `<strong>Reasoning:</strong> ${step.thought}`;
+          container.appendChild(thought);
+          setTimeout(() => thought.classList.add('visible'), 50);
+        }
+      } else if (step.type === 'thought_card') {
+        const thought = document.createElement('div');
+        thought.className = 'thought-card';
+        thought.style.borderLeftColor = '#3b82f6';
+        thought.style.background = 'rgba(59, 130, 246, 0.1)';
+        thought.innerHTML = `<strong>Agent Plan:</strong> ${step.thought}`;
+        container.appendChild(thought);
+        setTimeout(() => thought.classList.add('visible'), 30);
+      } else if (step.type === 'summary') {
+        const summary = document.createElement('div');
+        summary.className = 'thought-card';
+        summary.style.borderLeftColor = '#10b981';
+        summary.style.background = 'rgba(16, 185, 129, 0.12)';
+        summary.innerHTML = `<strong style="color:#34d399">✓ Session Complete:</strong> ${step.thought}`;
+        container.appendChild(summary);
+        setTimeout(() => summary.classList.add('visible'), 30);
+      }
+
+      // Update Analytics Values
+      baseSessions += step.analyticsDelta.sessions;
+      baseToolCalls += step.analyticsDelta.toolCalls;
+      baseIntentVal += step.analyticsDelta.intent;
+      baseCartVal += step.analyticsDelta.cartVal;
+
+      document.getElementById('metricSessions').textContent = baseSessions.toLocaleString();
+      document.getElementById('metricToolCalls').textContent = baseToolCalls.toLocaleString();
+      document.getElementById('metricIntentVal').textContent = '£' + baseIntentVal.toLocaleString(undefined, { minimumFractionDigits: 0 });
+      document.getElementById('metricCartVal').textContent = '£' + baseCartVal.toLocaleString(undefined, { minimumFractionDigits: 0 });
+
+      // Auto scroll trace feed
+      traceFeed.scrollTop = traceFeed.scrollHeight;
+
+      // Update Progress
+      const pct = (currentStep / SCRIPT_STEPS.length) * 100;
+      document.getElementById('progressBarFill').style.width = pct + '%';
+      document.getElementById('stepCounterLabel').textContent = `Step ${currentStep} of ${SCRIPT_STEPS.length}`;
+      document.getElementById('stepStatusLabel').textContent = currentStep === SCRIPT_STEPS.length ? 'Completed' : 'Running...';
+    }
+
+    function stepForward() {
+      if (currentStep < SCRIPT_STEPS.length) {
+        const step = SCRIPT_STEPS[currentStep];
+        currentStep++;
+        renderStep(step);
+
+        if (currentStep >= SCRIPT_STEPS.length) {
+          pauseDemo();
+        }
+      }
+    }
+
+    function togglePlay() {
+      if (isPlaying) {
+        pauseDemo();
+      } else {
+        if (currentStep >= SCRIPT_STEPS.length) {
+          resetDemo();
+        }
+        playDemo();
+      }
+    }
+
+    function playDemo() {
+      isPlaying = true;
+      document.getElementById('playIcon').textContent = '⏸';
+      document.getElementById('playText').textContent = 'Pause';
+      document.getElementById('btnPlayPause').classList.add('btn-primary');
+
+      playTimer = setInterval(() => {
+        if (currentStep < SCRIPT_STEPS.length) {
+          stepForward();
+        } else {
+          pauseDemo();
+        }
+      }, 1600);
+    }
+
+    function pauseDemo() {
+      isPlaying = false;
+      clearInterval(playTimer);
+      document.getElementById('playIcon').textContent = '▶';
+      document.getElementById('playText').textContent = currentStep >= SCRIPT_STEPS.length ? 'Replay' : 'Resume';
+    }
+
+    function resetDemo() {
+      pauseDemo();
+      currentStep = 0;
+      baseSessions = 1482;
+      baseToolCalls = 8924;
+      baseIntentVal = 124650;
+      baseCartVal = 42890;
+
+      document.getElementById('traceCardsContainer').innerHTML = '';
+      document.getElementById('metricSessions').textContent = '1,482';
+      document.getElementById('metricToolCalls').textContent = '8,924';
+      document.getElementById('metricIntentVal').textContent = '£124,650';
+      document.getElementById('metricCartVal').textContent = '£42,890';
+
+      document.getElementById('progressBarFill').style.width = '0%';
+      document.getElementById('stepCounterLabel').textContent = 'Step 0 of 8';
+      document.getElementById('stepStatusLabel').textContent = 'Ready';
+
+      // Reset store states
+      document.querySelectorAll('.product-card').forEach(c => {
+        c.classList.remove('targeted', 'added-cart');
+      });
+      const cartBadge = document.getElementById('storeCartBadge');
+      cartBadge.classList.remove('highlight');
+      document.getElementById('cartCountBadge').textContent = '0';
+      document.getElementById('cartTotalHeader').textContent = '£0.00';
+      document.getElementById('stock_summit').textContent = '12 in stock';
+    }
+
+    function setMode(mode) {
+      document.getElementById('btnModeLive').classList.toggle('active', mode === 'live');
+      document.getElementById('btnModeAnalytics').classList.toggle('active', mode === 'analytics');
+      
+      const stage = document.getElementById('mainStage');
+      if (mode === 'analytics') {
+        stage.style.gridTemplateColumns = '0fr 1fr';
+        document.querySelector('.store-column').style.display = 'none';
+      } else {
+        stage.style.gridTemplateColumns = '1fr 1fr';
+        document.querySelector('.store-column').style.display = 'flex';
+      }
+    }
+  </script>
+</body>
+</html>

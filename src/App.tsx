@@ -10,16 +10,25 @@ import { Navbar } from './components/Navbar';
 import { Storefront } from './components/Storefront';
 import { ProtocolInspector } from './components/ProtocolInspector';
 import { AgentSimulator } from './components/AgentSimulator';
+import { AgentAnalytics } from './components/AgentAnalytics';
 import { PluginCodeModal } from './components/PluginCodeModal';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'cockpit' | 'protocol' | 'store' | 'agent'>('cockpit');
+  const [activeTab, setActiveTab] = useState<'cockpit' | 'analytics' | 'protocol' | 'store' | 'agent'>('cockpit');
   const [frames, setFrames] = useState<JsonRpcFrame[]>([]);
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [activeStep, setActiveStep] = useState<AgentStep | undefined>(undefined);
   const [isCodeModalOpen, setIsCodeModalOpen] = useState<boolean>(false);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [, setTick] = useState<number>(0);
+
+  // Live session delta tracking
+  const [liveSessionDelta, setLiveSessionDelta] = useState({
+    sessions: 0,
+    toolCalls: 0,
+    intentVal: 0,
+    cartVal: 0
+  });
 
   // Initialize engine and security guard with stable refs
   const securityGuardRef = useRef<SecurityGuard | null>(null);
@@ -36,6 +45,14 @@ export const App: React.FC = () => {
       securityGuardRef.current,
       (frame: JsonRpcFrame) => {
         setFrames(prev => [frame, ...prev.slice(0, 49)]); // Keep last 50 frames
+        if (frame.type === 'request' && frame.method === 'tools/call') {
+          setLiveSessionDelta(prev => ({
+            ...prev,
+            toolCalls: prev.toolCalls + 1,
+            intentVal: frame.params?.name === 'search_products' ? prev.intentVal + 89 : prev.intentVal,
+            cartVal: frame.params?.name === 'add_to_cart_session' ? prev.cartVal + 89 : prev.cartVal
+          }));
+        }
       },
       () => setTick(t => t + 1),
       () => setTick(t => t + 1)
@@ -70,6 +87,7 @@ export const App: React.FC = () => {
     setFrames([]);
     setSecurityEvents([]);
     setActiveStep(undefined);
+    setLiveSessionDelta({ sessions: 0, toolCalls: 0, intentVal: 0, cartVal: 0 });
     setTick(t => t + 1);
   };
 
@@ -127,6 +145,13 @@ export const App: React.FC = () => {
               />
             </div>
 
+          </div>
+        )}
+
+        {/* View: Full Agent Analytics Suite */}
+        {activeTab === 'analytics' && (
+          <div className="w-full h-full overflow-hidden max-w-6xl mx-auto border-x border-slate-800 flex flex-col">
+            <AgentAnalytics liveSessionDelta={liveSessionDelta} />
           </div>
         )}
 
