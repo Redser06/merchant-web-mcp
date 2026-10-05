@@ -2,6 +2,13 @@
 
 > **Turn any e-commerce storefront into an observable, measurable, and transactable platform for AI shopping agents.**
 
+This repository holds **two apps** on the same agentic-commerce ground. This document is the merchant cockpit. The seller-side product thesis stays in its own briefing.
+
+| App | Role | Start |
+|---|---|---|
+| **1. Merchant Web MCP cockpit** | Observable storefront MCP for AI shopping agents (this README) | `bun install` then `bun run dev` |
+| **2. Seller Agent Console** | PSP control plane for managed seller agents | [`apps/seller-agent-console/BRIEFING.md`](apps/seller-agent-console/BRIEFING.md) · `bun run dev:seller` |
+
 [![Build & Test](https://github.com/Redser06/merchant-web-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Redser06/merchant-web-mcp/actions/workflows/ci.yml)
 [![Protocol Spec](https://img.shields.io/badge/MCP_Protocol-2024--11--05-blue.svg)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
@@ -66,23 +73,46 @@ Today, merchants are blind to AI shopping agents (ChatGPT Agent, Claude, Perplex
 
 ---
 
-## 🚀 Running the Cockpit & Tests
+## 🚀 Running each app
 
-### Quick Start
+### 1. Merchant Web MCP cockpit
+
 ```bash
-# 1. Install dependencies
+# Install dependencies
 bun install
 
-# 2. Run test suite (7 tests, 27 assertions)
+# Test suite
 bun test
 
-# 3. Start development server
+# Development server (Vite)
 bun run dev
 ```
 
-### Live Deployments
+Live deployments:
+
 - **Interactive Simulation Cockpit:** [https://merchant-web-mcp.web.app](https://merchant-web-mcp.web.app)
-- **Standalone Projector Demo (Single File HTML):** [https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html](https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html)
+- **Standalone projector demo** (single-file HTML in `demos/`): [https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html](https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html)
+
+### 2. Seller Agent Console
+
+PSP-hosted control plane for managed seller agents (Mandate Gate, human approve, SP-API writes). Demo merchant: North Harbour Gear. Branding: Meridian Pay.
+
+Product thesis, architecture, and what is simulated vs real: **[`apps/seller-agent-console/BRIEFING.md`](apps/seller-agent-console/BRIEFING.md)**. App notes: [`apps/seller-agent-console/README.md`](apps/seller-agent-console/README.md).
+
+No build step. The prototype is static HTML/CSS/JS.
+
+```bash
+# from the repo root
+bun run dev:seller
+# → http://localhost:8931  (prototype/index.html)
+
+# or open the file directly
+open apps/seller-agent-console/prototype/index.html
+```
+
+Architecture diagrams: [`apps/seller-agent-console/prototype/architecture.html`](apps/seller-agent-console/prototype/architecture.html).
+
+Imported from [seller-agent-console](https://github.com/Redser06/seller-agent-console) at `3ff17182f74373d08c2cab1dbd45f40dd5db5b19` (subtree; see [`apps/seller-agent-console/ORIGIN.md`](apps/seller-agent-console/ORIGIN.md)).
 
 ---
 

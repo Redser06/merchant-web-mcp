@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:seller": "bash apps/seller-agent-console/serve.sh",
     "build": "tsc -b && vite build",
     "test": "bun test",
     "lint": "oxlint",
