@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { MerchantMcpEngine } from '../src/mcp/merchantMcpEngine';
 import { SecurityGuard } from '../src/mcp/securityGuard';
-import { verifyCheckoutSignature } from '../src/mcp/cryptoAuth';
+import { DEMO_ONLY_SIGNATURE } from '../src/mcp/demoCheckout';
 
 describe('MerchantMcpEngine & Security Architecture', () => {
   let guard: SecurityGuard;
@@ -58,8 +60,7 @@ describe('MerchantMcpEngine & Security Architecture', () => {
     })).rejects.toThrow();
   });
 
-  it('3. should generate and verify real cryptographic HMAC-SHA256 checkout tokens', async () => {
-    // Add item first
+  it('3. should label the cockpit checkout as demo-only and not sign it', async () => {
     await engine.executeRpc('tools/call', {
       name: 'add_to_cart_session',
       arguments: { variant_id: 'var_summit_black', quantity: 1 }
@@ -71,35 +72,31 @@ describe('MerchantMcpEngine & Security Architecture', () => {
       arguments: { cart_id: cart.id }
     });
 
-    expect(checkoutRes.checkout_url).toContain('sig=');
-    expect(checkoutRes.security_attestation.is_cryptographically_verified).toBe(true);
-    expect(checkoutRes.security_attestation.signature.length).toBe(64); // 32 bytes in hex
+    expect(checkoutRes.checkout_url).toContain(encodeURIComponent(DEMO_ONLY_SIGNATURE));
+    expect(checkoutRes.security_attestation.signature).toBe(DEMO_ONLY_SIGNATURE);
+    expect(checkoutRes.security_attestation.algorithm).toBe(DEMO_ONLY_SIGNATURE);
+    expect(checkoutRes.security_attestation.is_cryptographically_verified).toBe(false);
+    expect(checkoutRes.security_attestation.signature).not.toMatch(/^[0-9a-f]{64}$/);
+  });
 
-    // Verify signature cryptographically
-    const isValid = await verifyCheckoutSignature(
-      {
-        cartId: cart.id,
-        total: cart.total,
-        currency: 'GBP',
-        expiresAt: new Date(checkoutRes.expires_at).getTime()
-      },
-      checkoutRes.security_attestation.signature
-    );
+  it('3b. should keep HMAC env access out of client source', () => {
+    const root = join(import.meta.dir, '../src');
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (/\.(ts|tsx)$/.test(entry.name)) files.push(full);
+      }
+    };
+    walk(root);
 
-    expect(isValid).toBe(true);
-
-    // Tampered payload verification should fail
-    const isTamperedValid = await verifyCheckoutSignature(
-      {
-        cartId: cart.id,
-        total: 1.00, // Tampered total
-        currency: 'GBP',
-        expiresAt: new Date(checkoutRes.expires_at).getTime()
-      },
-      checkoutRes.security_attestation.signature
-    );
-
-    expect(isTamperedValid).toBe(false);
+    for (const file of files) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).not.toContain('VITE_MERCHANT_HMAC_SECRET');
+      expect(text).not.toContain('MERCHANT_HMAC_SECRET');
+      expect(text).not.toContain('import.meta.env');
+    }
   });
 
   it('4. should reject checkout session creation for non-existent cart_id', async () => {
