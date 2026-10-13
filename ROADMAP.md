@@ -52,7 +52,7 @@ In production, the merchant plugin deploys as an edge service that securely medi
 
 ### Phase 1: Interactive Cockpit & Verification (Complete in this repo)
 - [x] Client-side simulation engine with full MCP tool schema (`search_products`, `get_product_details`, `check_variant_stock`, `apply_promotions`, `add_to_cart_session`, `create_checkout_session`, `get_store_policies`)
-- [x] Real Web Crypto HMAC-SHA256 signature generation and verification (`src/mcp/cryptoAuth.ts`)
+- [x] Real Web Crypto HMAC-SHA256 signature generation and verification in the Worker example (`server-examples/checkoutHmac.ts`). The cockpit handoff is labelled demo-only.
 - [x] Real 15-minute inventory soft-lock countdown and automatic TTL expiration
 - [x] Multi-cart mapping and `cart_id` validation
 - [x] Merchant Agent Intent Analytics suite (Discovered Intent £, Provider attribution, Demand Gaps)

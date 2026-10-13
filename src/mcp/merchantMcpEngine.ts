@@ -6,7 +6,7 @@ import type {
 } from '../types';
 import { INITIAL_PRODUCTS, STORE_POLICIES, PROMO_CODES } from '../data/mockProducts';
 import { SecurityGuard } from './securityGuard';
-import { signCheckoutSession } from './cryptoAuth';
+import { demoSignCheckout, DEMO_ONLY_SIGNATURE } from './demoCheckout';
 
 export const MERCHANT_MCP_TOOLS: McpToolDefinition[] = [
   {
@@ -73,7 +73,7 @@ export const MERCHANT_MCP_TOOLS: McpToolDefinition[] = [
   },
   {
     name: 'create_checkout_session',
-    description: 'Generate a genuine HMAC-SHA256 signed checkout URL or Agent Wallet handoff payload with verified totals and reservation token.',
+    description: 'Return a cockpit checkout handoff labelled DEMO ONLY - not signed. Real HMAC signing is the Cloudflare Worker.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -576,8 +576,7 @@ export class MerchantMcpEngine {
         const mode = args.mode || 'deep_link_url';
         const expiresAt = cart.reservationExpiresAt || (Date.now() + (this.ttlSeconds * 1000));
 
-        // Genuine cryptographic HMAC-SHA256 signing
-        const signed = await signCheckoutSession({
+        const signed = demoSignCheckout({
           cartId: cart.id,
           total: cart.total,
           currency: STORE_POLICIES.currency,
@@ -593,13 +592,13 @@ export class MerchantMcpEngine {
           expires_at: new Date(expiresAt).toISOString(),
           ttl_remaining_seconds: Math.max(0, Math.round((expiresAt - Date.now()) / 1000)),
           security_attestation: {
-            algorithm: 'HMAC-SHA256',
-            signature: signed.signatureHex,
-            is_cryptographically_verified: true,
+            algorithm: DEMO_ONLY_SIGNATURE,
+            signature: signed.signature,
+            is_cryptographically_verified: false,
             canonical_payload: signed.canonicalMessage
           },
           delegated_agent_pass: mode === 'agent_wallet_token' ? {
-            token: `agnt_pass_${signed.signatureHex.substring(0, 16)}`,
+            token: 'agnt_pass_demo_only',
             merchant_identifier: 'merchant.trailco.uk',
             authorized_max_cents: Math.round(cart.total * 100),
             biometric_verification_required: true

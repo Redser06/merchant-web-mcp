@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test';
-import { buildProductSearchQuery, searchProducts } from '../server-examples/productSearch';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { buildProductSearchQuery, CATALOG_COLUMNS, searchProducts } from '../server-examples/productSearch';
 
 const allFilters = {
   query: '100% backpack',
@@ -58,5 +60,27 @@ describe('worker product search filters', () => {
 
     expect(sql).not.toContain('waterproof');
     expect(params).toEqual(['%jacket%', '%jacket%', 0]);
+  });
+
+  it('rejects a max_price that is not a finite number >= 0', () => {
+    expect(() => buildProductSearchQuery({ query: 'tent', max_price: -1 })).toThrow(/max_price/);
+    expect(() => buildProductSearchQuery({ query: 'tent', max_price: Number.NaN })).toThrow(/max_price/);
+    expect(() => buildProductSearchQuery({ query: 'tent', max_price: Number.POSITIVE_INFINITY })).toThrow(/max_price/);
+  });
+
+  it('matches the catalog schema fixture for category, description, and waterproof', () => {
+    const schema = readFileSync(join(import.meta.dir, '../server-examples/catalog.sql'), 'utf8');
+    for (const column of CATALOG_COLUMNS) {
+      expect(schema).toContain(column);
+    }
+    expect(schema).toContain("'Packs'");
+    expect(schema).toContain('Waterproof roll-top pack');
+    expect(schema).toContain('waterproof INTEGER');
+
+    const { sql } = buildProductSearchQuery(allFilters);
+    for (const column of ['title', 'description', 'category', 'price', 'waterproof', 'id', 'in_stock']) {
+      expect(sql).toContain(column);
+      expect(schema).toContain(column);
+    }
   });
 });

@@ -1,24 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'bun:test';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { MerchantMcpEngine } from '../src/mcp/merchantMcpEngine';
 import { SecurityGuard } from '../src/mcp/securityGuard';
-import { signCheckoutSession, verifyCheckoutSignature } from '../src/mcp/cryptoAuth';
-
-const TEST_HMAC_SECRET = 'test-only-hmac-key';
+import { DEMO_ONLY_SIGNATURE } from '../src/mcp/demoCheckout';
 
 describe('MerchantMcpEngine & Security Architecture', () => {
   let guard: SecurityGuard;
   let engine: MerchantMcpEngine;
 
   beforeEach(() => {
-    process.env.MERCHANT_HMAC_SECRET = TEST_HMAC_SECRET;
-    delete process.env.VITE_MERCHANT_HMAC_SECRET;
     guard = new SecurityGuard();
     engine = new MerchantMcpEngine(guard, undefined, undefined, undefined, 900);
-  });
-
-  afterEach(() => {
-    delete process.env.MERCHANT_HMAC_SECRET;
-    delete process.env.VITE_MERCHANT_HMAC_SECRET;
   });
 
   it('1. should search products with multi-attribute constraints', async () => {
@@ -67,8 +60,7 @@ describe('MerchantMcpEngine & Security Architecture', () => {
     })).rejects.toThrow();
   });
 
-  it('3. should generate and verify real cryptographic HMAC-SHA256 checkout tokens', async () => {
-    // Add item first
+  it('3. should label the cockpit checkout as demo-only and not sign it', async () => {
     await engine.executeRpc('tools/call', {
       name: 'add_to_cart_session',
       arguments: { variant_id: 'var_summit_black', quantity: 1 }
@@ -80,55 +72,31 @@ describe('MerchantMcpEngine & Security Architecture', () => {
       arguments: { cart_id: cart.id }
     });
 
-    expect(checkoutRes.checkout_url).toContain('sig=');
-    expect(checkoutRes.security_attestation.is_cryptographically_verified).toBe(true);
-    expect(checkoutRes.security_attestation.signature.length).toBe(64); // 32 bytes in hex
-
-    const signedPayload = {
-      cartId: cart.id,
-      total: cart.total,
-      currency: 'GBP',
-      expiresAt: new Date(checkoutRes.expires_at).getTime()
-    };
-
-    // Signer reads MERCHANT_HMAC_SECRET; verification with that key must match.
-    const isValid = await verifyCheckoutSignature(
-      signedPayload,
-      checkoutRes.security_attestation.signature,
-      TEST_HMAC_SECRET
-    );
-
-    expect(isValid).toBe(true);
-
-    // Tampered payload verification should fail
-    const isTamperedValid = await verifyCheckoutSignature(
-      {
-        ...signedPayload,
-        total: 1.00, // Tampered total
-      },
-      checkoutRes.security_attestation.signature,
-      TEST_HMAC_SECRET
-    );
-
-    expect(isTamperedValid).toBe(false);
+    expect(checkoutRes.checkout_url).toContain(encodeURIComponent(DEMO_ONLY_SIGNATURE));
+    expect(checkoutRes.security_attestation.signature).toBe(DEMO_ONLY_SIGNATURE);
+    expect(checkoutRes.security_attestation.algorithm).toBe(DEMO_ONLY_SIGNATURE);
+    expect(checkoutRes.security_attestation.is_cryptographically_verified).toBe(false);
+    expect(checkoutRes.security_attestation.signature).not.toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it('3b. should fail with a clear error when the HMAC secret env var is unset', async () => {
-    delete process.env.MERCHANT_HMAC_SECRET;
-    delete process.env.VITE_MERCHANT_HMAC_SECRET;
-
-    const payload = {
-      cartId: 'cart_unset_secret',
-      total: 10,
-      currency: 'GBP',
-      expiresAt: Date.now() + 1000
+  it('3b. should keep HMAC env access out of client source', () => {
+    const root = join(import.meta.dir, '../src');
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (/\.(ts|tsx)$/.test(entry.name)) files.push(full);
+      }
     };
+    walk(root);
 
-    await expect(signCheckoutSession(payload)).rejects.toThrow(/MERCHANT_HMAC_SECRET/);
-    await expect(verifyCheckoutSignature(payload, 'ab')).rejects.toThrow(/HMAC secret is unset/);
-
-    process.env.MERCHANT_HMAC_SECRET = '   ';
-    await expect(signCheckoutSession(payload)).rejects.toThrow(/HMAC secret is unset/);
+    for (const file of files) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).not.toContain('VITE_MERCHANT_HMAC_SECRET');
+      expect(text).not.toContain('MERCHANT_HMAC_SECRET');
+      expect(text).not.toContain('import.meta.env');
+    }
   });
 
   it('4. should reject checkout session creation for non-existent cart_id', async () => {

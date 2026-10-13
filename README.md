@@ -17,7 +17,7 @@ This repository holds **two apps** on the same agentic-commerce ground. This doc
 
 > [!NOTE]
 > **Prototype & Simulation Notice:**
-> This repository contains an **interactive simulation cockpit and prototype** of the proposed BigCommerce / Merchant Web MCP plugin architecture. The simulation engine runs client-side with simulated latency, genuine Web Crypto HMAC-SHA256 signing, real 15-minute TTL inventory reservation timers, and an executive Agent Intent Analytics dashboard.
+> This repository contains an **interactive simulation cockpit and prototype** of the proposed BigCommerce / Merchant Web MCP plugin architecture. The simulation engine runs client-side with simulated latency, a labelled demo checkout handoff (not a real signature), real 15-minute TTL inventory reservation timers, and an executive Agent Intent Analytics dashboard.
 
 ---
 
@@ -32,7 +32,7 @@ Today, merchants are blind to AI shopping agents (ChatGPT Agent, Claude, Perplex
 ### The Solution: BigCommerce Merchant Web MCP
 1. **Agent Intent Analytics (Immediate SaaS Value):** Captures incoming agent sessions, tool executions, discovered intent value (£124k+ pipeline), provider breakdown, and catalog demand gaps.
 2. **Deterministic MCP Interface:** Exposes structured JSON-RPC tools (`search_products`, `get_product_details`, `check_variant_stock`, `apply_promotions`, `add_to_cart_session`, `create_checkout_session`).
-3. **Verified Cryptographic Handoff:** Generates signed checkout URLs using genuine Web Crypto HMAC-SHA256 tokens with 15-minute ephemeral inventory soft-locks.
+3. **Demo checkout handoff:** The cockpit labels the session `DEMO ONLY - not signed`. Real HMAC-SHA256 signing runs only in the Cloudflare Worker.
 
 ---
 
@@ -58,7 +58,7 @@ Today, merchants are blind to AI shopping agents (ChatGPT Agent, Claude, Perplex
 │  │  • check_variant_stock(variant_id, postal_code)  │  │
 │  │  • apply_promotions(promo_code, subtotal)        │  │
 │  │  • add_to_cart_session(variant_id, qty) [15m TTL]│  │
-│  │  • create_checkout_session (WebCrypto HMAC SHA256│  │
+│  │  • create_checkout_session (demo label in cockpit)│  │
 │  │  • get_store_policies()                          │  │
 │  └────────────────────────┬─────────────────────────┘  │
 └───────────────────────────┼────────────────────────────┘
@@ -118,7 +118,7 @@ Imported from [seller-agent-console](https://github.com/Redser06/seller-agent-co
 
 ## 🛡️ Security & Integrity Highlights in this Repo
 
-- **Genuine Web Crypto HMAC-SHA256:** Implemented in [`src/mcp/cryptoAuth.ts`](src/mcp/cryptoAuth.ts) using standard `crypto.subtle`. Signatures are cryptographically verified upon checkout session generation. Signing and verification read `MERCHANT_HMAC_SECRET` (Vite client bundles use `VITE_MERCHANT_HMAC_SECRET`) and throw a clear error when that variable is unset. There is no built-in default.
+- **Checkout HMAC stays on the Worker:** [`server-examples/checkoutHmac.ts`](server-examples/checkoutHmac.ts) signs and verifies with the `MERCHANT_HMAC_SECRET` Worker secret. Signing throws if that secret is unset. Verification returns false and logs. The browser cockpit never receives the secret. Its handoff is labelled `DEMO ONLY - not signed`.
 - **Active TTL Inventory Expiration:** Implemented in [`src/mcp/merchantMcpEngine.ts`](src/mcp/merchantMcpEngine.ts). Ephemeral reservations expire after 900 seconds (15 mins), automatically returning stock to available inventory and notifying the client wire HUD.
 - **Layered Defense-in-Depth:** Implemented in [`src/mcp/securityGuard.ts`](src/mcp/securityGuard.ts). Normalizes Unicode/zero-width obfuscation and scans across customer reviews, search queries, and promo arguments.
 - **Multi-Cart Isolation:** Engine maps carts explicitly by `cart_id`, rejecting checkout attempts on invalid or foreign cart sessions.

@@ -218,7 +218,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
     dynamicSteps.push({
       stepNumber: dynamicSteps.length + 1,
       title: 'Generate Signed Checkout Session',
-      thought: 'Finalizing cart and computing real HMAC-SHA256 signature.',
+      thought: 'Finalizing cart. This cockpit handoff is DEMO ONLY - not signed.',
       toolCall: { name: 'create_checkout_session', params: { cart_id: 'active', mode: 'deep_link_url' } },
       status: 'pending'
     });
@@ -425,7 +425,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
                     {step.toolCall?.name === 'check_variant_stock' && `Live Stock: ${step.toolResult.available_units} units available in ${step.toolResult.delivery_estimate?.warehouse_location}.`}
                     {step.toolCall?.name === 'apply_promotions' && `Discount: -£${step.toolResult.discount_amount} (${step.toolResult.discount_percent}% off).`}
                     {step.toolCall?.name === 'add_to_cart_session' && `Cart Total: £${step.toolResult.cart_summary?.total.toFixed(2)} with active ${step.toolResult.ttl_seconds}s soft lock.`}
-                    {step.toolCall?.name === 'create_checkout_session' && `Cryptographic HMAC-SHA256 verified for cart ${step.toolResult.session_id}.`}
+                    {step.toolCall?.name === 'create_checkout_session' && `DEMO ONLY - not signed for cart ${step.toolResult.session_id}.`}
                     {step.toolCall?.name === 'get_store_policies' && `Verified 30-day UK returns & Royal Mail Tracked 24 Free Shipping.`}
                   </div>
                 </div>
@@ -451,7 +451,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
               </div>
               <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-emerald-400" />
-                <span>HMAC-SHA256 Signed</span>
+                <span>DEMO ONLY - not signed</span>
               </span>
             </div>
 
@@ -463,8 +463,8 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
             {checkoutPayload?.security_attestation && (
               <div className="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] font-mono text-slate-400 space-y-1">
                 <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-sky-400 font-bold">SubtleCrypto HMAC Attestation:</span>
-                  <span className="text-emerald-400">✓ Cryptographically Verified</span>
+                  <span className="text-sky-400 font-bold">Demo checkout:</span>
+                  <span className="text-amber-300">DEMO ONLY - not signed</span>
                 </div>
                 <div className="truncate text-slate-400">
                   SIG: <code className="text-emerald-300">{checkoutPayload.security_attestation.signature}</code>
@@ -483,7 +483,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
                     <span>Signed Deep-Link</span>
                   </div>
                   <p className="text-[10px] text-slate-400 leading-snug">
-                    Pre-authenticated 1-click checkout URL with Web Crypto HMAC token.
+                    Demo handoff only. Real HMAC signing happens in the Worker.
                   </p>
                 </div>
                 <button

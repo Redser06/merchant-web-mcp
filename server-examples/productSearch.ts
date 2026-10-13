@@ -3,6 +3,17 @@
  * Every filter the search_products tool accepts is applied here.
  */
 
+/** Columns in server-examples/catalog.sql. Filters and the SELECT list use these names. */
+export const CATALOG_COLUMNS = [
+  'id',
+  'title',
+  'description',
+  'category',
+  'price',
+  'waterproof',
+  'in_stock',
+] as const;
+
 export interface ProductSearchFilters {
   query?: string;
   category?: string;
@@ -30,11 +41,20 @@ function likeContains(value: string): string {
   return `%${escaped}%`;
 }
 
+function assertMaxPrice(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new Error('max_price must be a finite number greater than or equal to 0');
+  }
+  return value;
+}
+
 /**
  * Builds a parameterized D1 query. Optional filters are omitted when absent.
  * max_price falls back to the example's previous ceiling only when unset.
  */
 export function buildProductSearchQuery(filters: ProductSearchFilters): ProductSearchQuery {
+  const maxPrice = assertMaxPrice(filters.max_price);
   const clauses: string[] = [];
   const params: unknown[] = [];
 
@@ -51,7 +71,7 @@ export function buildProductSearchQuery(filters: ProductSearchFilters): ProductS
   }
 
   clauses.push('price <= ?');
-  params.push(filters.max_price ?? 9999);
+  params.push(maxPrice ?? 9999);
 
   if (filters.waterproof_only) {
     clauses.push('waterproof = 1');
