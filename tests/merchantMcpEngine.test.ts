@@ -1,15 +1,24 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { MerchantMcpEngine } from '../src/mcp/merchantMcpEngine';
 import { SecurityGuard } from '../src/mcp/securityGuard';
-import { verifyCheckoutSignature } from '../src/mcp/cryptoAuth';
+import { signCheckoutSession, verifyCheckoutSignature } from '../src/mcp/cryptoAuth';
+
+const TEST_HMAC_SECRET = 'test-only-hmac-key';
 
 describe('MerchantMcpEngine & Security Architecture', () => {
   let guard: SecurityGuard;
   let engine: MerchantMcpEngine;
 
   beforeEach(() => {
+    process.env.MERCHANT_HMAC_SECRET = TEST_HMAC_SECRET;
+    delete process.env.VITE_MERCHANT_HMAC_SECRET;
     guard = new SecurityGuard();
     engine = new MerchantMcpEngine(guard, undefined, undefined, undefined, 900);
+  });
+
+  afterEach(() => {
+    delete process.env.MERCHANT_HMAC_SECRET;
+    delete process.env.VITE_MERCHANT_HMAC_SECRET;
   });
 
   it('1. should search products with multi-attribute constraints', async () => {
@@ -75,15 +84,18 @@ describe('MerchantMcpEngine & Security Architecture', () => {
     expect(checkoutRes.security_attestation.is_cryptographically_verified).toBe(true);
     expect(checkoutRes.security_attestation.signature.length).toBe(64); // 32 bytes in hex
 
-    // Verify signature cryptographically
+    const signedPayload = {
+      cartId: cart.id,
+      total: cart.total,
+      currency: 'GBP',
+      expiresAt: new Date(checkoutRes.expires_at).getTime()
+    };
+
+    // Signer reads MERCHANT_HMAC_SECRET; verification with that key must match.
     const isValid = await verifyCheckoutSignature(
-      {
-        cartId: cart.id,
-        total: cart.total,
-        currency: 'GBP',
-        expiresAt: new Date(checkoutRes.expires_at).getTime()
-      },
-      checkoutRes.security_attestation.signature
+      signedPayload,
+      checkoutRes.security_attestation.signature,
+      TEST_HMAC_SECRET
     );
 
     expect(isValid).toBe(true);
@@ -91,15 +103,32 @@ describe('MerchantMcpEngine & Security Architecture', () => {
     // Tampered payload verification should fail
     const isTamperedValid = await verifyCheckoutSignature(
       {
-        cartId: cart.id,
+        ...signedPayload,
         total: 1.00, // Tampered total
-        currency: 'GBP',
-        expiresAt: new Date(checkoutRes.expires_at).getTime()
       },
-      checkoutRes.security_attestation.signature
+      checkoutRes.security_attestation.signature,
+      TEST_HMAC_SECRET
     );
 
     expect(isTamperedValid).toBe(false);
+  });
+
+  it('3b. should fail with a clear error when the HMAC secret env var is unset', async () => {
+    delete process.env.MERCHANT_HMAC_SECRET;
+    delete process.env.VITE_MERCHANT_HMAC_SECRET;
+
+    const payload = {
+      cartId: 'cart_unset_secret',
+      total: 10,
+      currency: 'GBP',
+      expiresAt: Date.now() + 1000
+    };
+
+    await expect(signCheckoutSession(payload)).rejects.toThrow(/MERCHANT_HMAC_SECRET/);
+    await expect(verifyCheckoutSignature(payload, 'ab')).rejects.toThrow(/HMAC secret is unset/);
+
+    process.env.MERCHANT_HMAC_SECRET = '   ';
+    await expect(signCheckoutSession(payload)).rejects.toThrow(/HMAC secret is unset/);
   });
 
   it('4. should reject checkout session creation for non-existent cart_id', async () => {

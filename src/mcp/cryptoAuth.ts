@@ -21,22 +21,63 @@ export interface SignedCheckoutResult {
   isVerified: boolean;
 }
 
-const DEFAULT_DEMO_SECRET = 'demo_secret_apex_merchant_mcp_hmac_sha256_key_2026';
+/** Node, Bun, and Workers. Vite client bundles must use the VITE_ prefixed name. */
+export const HMAC_SECRET_ENV = 'MERCHANT_HMAC_SECRET';
+export const HMAC_SECRET_VITE_ENV = 'VITE_MERCHANT_HMAC_SECRET';
+
+function nonEmpty(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
+function readProcessEnv(name: string): string | undefined {
+  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  return nonEmpty(proc?.env?.[name]);
+}
+
+function readViteEnv(): string | undefined {
+  // Vite only inlines static import.meta.env.VITE_* access into the client bundle.
+  try {
+    return nonEmpty(import.meta.env.VITE_MERCHANT_HMAC_SECRET);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Explicit secret wins. Otherwise the env var is required; there is no built-in default.
+ */
+export function resolveHmacSecret(secretKey?: string): string {
+  const provided = nonEmpty(secretKey);
+  if (provided) return provided;
+
+  const fromEnv = readProcessEnv(HMAC_SECRET_ENV)
+    ?? readProcessEnv(HMAC_SECRET_VITE_ENV)
+    ?? readViteEnv();
+
+  if (!fromEnv) {
+    throw new Error(
+      `HMAC secret is unset. Set the ${HMAC_SECRET_ENV} environment variable (Vite client: ${HMAC_SECRET_VITE_ENV}) before signing or verifying a checkout session.`
+    );
+  }
+
+  return fromEnv;
+}
 
 /**
  * Generates a real cryptographic HMAC-SHA256 signature for a checkout session.
  */
 export async function signCheckoutSession(
   payload: CheckoutSignaturePayload,
-  secretKey: string = DEFAULT_DEMO_SECRET,
+  secretKey?: string,
   baseUrl: string = 'https://trailco.co.uk/checkout'
 ): Promise<SignedCheckoutResult> {
+  const resolvedSecret = resolveHmacSecret(secretKey);
   const encoder = new TextEncoder();
   const canonicalMessage = `cart_id:${payload.cartId}|total:${payload.total.toFixed(2)}|currency:${payload.currency}|exp:${payload.expiresAt}`;
 
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(secretKey),
+    encoder.encode(resolvedSecret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign', 'verify']
@@ -72,15 +113,16 @@ export async function signCheckoutSession(
 export async function verifyCheckoutSignature(
   payload: CheckoutSignaturePayload,
   signatureHex: string,
-  secretKey: string = DEFAULT_DEMO_SECRET
+  secretKey?: string
 ): Promise<boolean> {
+  const resolvedSecret = resolveHmacSecret(secretKey);
   try {
     const encoder = new TextEncoder();
     const canonicalMessage = `cart_id:${payload.cartId}|total:${payload.total.toFixed(2)}|currency:${payload.currency}|exp:${payload.expiresAt}`;
 
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(secretKey),
+      encoder.encode(resolvedSecret),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['verify']

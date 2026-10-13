@@ -91,7 +91,7 @@ bun run dev
 Live deployments:
 
 - **Interactive Simulation Cockpit:** [https://merchant-web-mcp.web.app](https://merchant-web-mcp.web.app)
-- **Standalone projector demo** (single-file HTML in `demos/`): [https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html](https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html)
+- **Standalone projector demo** (single source [`demos/merchant-web-mcp-demo-v2.html`](demos/merchant-web-mcp-demo-v2.html); Vite dev, preview, and build publish it to `/demos/merchant-web-mcp-demo-v2.html` and `/merchant-web-mcp-demo-v2.html`): [https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html](https://merchant-web-mcp.web.app/demos/merchant-web-mcp-demo-v2.html)
 
 ### 2. Seller Agent Console
 
@@ -118,7 +118,7 @@ Imported from [seller-agent-console](https://github.com/Redser06/seller-agent-co
 
 ## 🛡️ Security & Integrity Highlights in this Repo
 
-- **Genuine Web Crypto HMAC-SHA256:** Implemented in [`src/mcp/cryptoAuth.ts`](src/mcp/cryptoAuth.ts) using standard `crypto.subtle`. Signatures are cryptographically verified upon checkout session generation.
+- **Genuine Web Crypto HMAC-SHA256:** Implemented in [`src/mcp/cryptoAuth.ts`](src/mcp/cryptoAuth.ts) using standard `crypto.subtle`. Signatures are cryptographically verified upon checkout session generation. Signing and verification read `MERCHANT_HMAC_SECRET` (Vite client bundles use `VITE_MERCHANT_HMAC_SECRET`) and throw a clear error when that variable is unset. There is no built-in default.
 - **Active TTL Inventory Expiration:** Implemented in [`src/mcp/merchantMcpEngine.ts`](src/mcp/merchantMcpEngine.ts). Ephemeral reservations expire after 900 seconds (15 mins), automatically returning stock to available inventory and notifying the client wire HUD.
 - **Layered Defense-in-Depth:** Implemented in [`src/mcp/securityGuard.ts`](src/mcp/securityGuard.ts). Normalizes Unicode/zero-width obfuscation and scans across customer reviews, search queries, and promo arguments.
 - **Multi-Cart Isolation:** Engine maps carts explicitly by `cart_id`, rejecting checkout attempts on invalid or foreign cart sessions.

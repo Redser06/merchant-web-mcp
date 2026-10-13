@@ -39,6 +39,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [isExecutingCustom, setIsExecutingCustom] = useState<boolean>(false);
   const [checkoutPayload, setCheckoutPayload] = useState<any>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   
   const timerRef = useRef<number | null>(null);
 
@@ -49,6 +50,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
     setSelectedScenario(scenario);
     setCurrentStepIndex(-1);
     setCheckoutPayload(null);
+    setCheckoutError(null);
     engine.resetState();
     onStepChange(undefined);
     onRefreshData();
@@ -70,10 +72,15 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
 
         if (step.toolCall.name === 'create_checkout_session') {
           setCheckoutPayload(result);
+          setCheckoutError(null);
         }
       }
     } catch (err: any) {
       step.toolResult = { error: err.message };
+      if (step.toolCall?.name === 'create_checkout_session') {
+        setCheckoutPayload(null);
+        setCheckoutError(err.message);
+      }
     }
 
     step.status = 'completed';
@@ -138,6 +145,7 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
     setIsPlaying(false);
     setCurrentStepIndex(-1);
     setCheckoutPayload(null);
+    setCheckoutError(null);
     engine.resetState();
     onStepChange(undefined);
     onRefreshData();
@@ -426,8 +434,15 @@ export const AgentSimulator: React.FC<AgentSimulatorProps> = ({
           );
         })}
 
+        {isCompleted && checkoutError && (
+          <div className="bg-rose-950/50 border border-rose-500/50 rounded-xl p-4 shadow-xl space-y-2">
+            <div className="font-bold text-rose-100 text-sm">Checkout signing failed</div>
+            <p className="text-[11px] font-mono text-rose-200 leading-relaxed">{checkoutError}</p>
+          </div>
+        )}
+
         {/* Final Conversion / Checkout Handoff Card */}
-        {isCompleted && (
+        {isCompleted && !checkoutError && (
           <div className="bg-gradient-to-br from-emerald-950/60 via-slate-900 to-indigo-950/60 border border-emerald-500/50 rounded-xl p-4 shadow-xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

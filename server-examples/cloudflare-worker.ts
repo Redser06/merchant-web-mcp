@@ -5,11 +5,11 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
+import { searchProducts } from "./productSearch";
 
 export interface Env {
   STORE_KV: KVNamespace;
   CATALOG_DB: D1Database;
-  CHECKOUT_SECRET: string;
 }
 
 export default {
@@ -43,12 +43,10 @@ export default {
         max_price: z.number().optional(),
         waterproof_only: z.boolean().optional()
       }, async (args) => {
-        // Query D1 SQL Catalog with parameterized queries
-        const items = await env.CATALOG_DB.prepare(
-          "SELECT id, title, price, in_stock FROM products WHERE price <= ? LIMIT 10"
-        ).bind(args.max_price ?? 9999).all();
+        // Query D1 SQL Catalog with parameterized queries for every accepted filter.
+        const items = await searchProducts(env.CATALOG_DB, args);
 
-        return { content: [{ type: "text", text: JSON.stringify(items.results) }] };
+        return { content: [{ type: "text", text: JSON.stringify(items) }] };
       });
 
       // Register Tool: Add to Cart with 15-minute soft lock
